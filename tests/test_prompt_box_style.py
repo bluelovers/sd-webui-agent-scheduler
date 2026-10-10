@@ -1,5 +1,5 @@
 """
-test_prompt_box_style.py — prompt_box_style 相容偵測的固定測試 / Permanent tests for prompt_box_style compatibility detection.
+test_prompt_box_style.py — prompt_box_style 相容偵測的固定測試
 
 涵蓋:
 1. supports_prompt_box_style()：以 ui_toprow 的實作（_container_class /
@@ -21,7 +21,7 @@ test_prompt_box_style.py — prompt_box_style 相容偵測的固定測試 / Perm
    is_compact_layout(): pure structural detection from marker classes,
    depending on no option API at all.
 
-執行 / Run:
+執行
     python tests/test_prompt_box_style.py
     python tests/run_tests.py
 """
@@ -46,7 +46,7 @@ from agent_scheduler.compat_a1111_forge.prompt_box_style import (  # noqa: E402
 
 
 class FakeOpts:
-    """最小 shared.opts 替身：以屬性反映設定值 / Minimal shared.opts stand-in exposing options as attributes."""
+    """最小 shared.opts 替身：以屬性反映設定值"""
 
     def __init__(self, **values):
         self.__dict__.update(values)
@@ -60,7 +60,7 @@ class FakeOpts:
 
 
 class ToprowWithContainerClass:
-    """forge 形式：以 _container_class() 把選項套用到版面 / forge-style: applies the option via _container_class()."""
+    """forge 形式：以 _container_class() 把選項套用到版面"""
 
     @staticmethod
     def _container_class():
@@ -95,7 +95,7 @@ class ToprowWithoutOption:
 
 
 # ---------------------------------------------------------------------------
-# 元件樹替身 / Component tree stand-ins
+# 元件樹替身
 # ---------------------------------------------------------------------------
 
 
@@ -117,7 +117,7 @@ class FakeBlock:
 
 
 class WebuiStubTestBase(unittest.TestCase):
-    """共用的 modules.* 替身安裝 / Shared installation of the modules.* stand-ins."""
+    """共用的 modules.* 替身安裝"""
 
     def install_webui(self, opts=None, toprow=None, with_ui_toprow=True):
         """把假的 modules / modules.shared / modules.ui_toprow 放進 sys.modules。
@@ -148,7 +148,7 @@ class WebuiStubTestBase(unittest.TestCase):
 
 
 class SupportsPromptBoxStyleTest(WebuiStubTestBase):
-    """supports_prompt_box_style() / get_prompt_box_style() 的判定 / Decisions of supports_prompt_box_style() and get_prompt_box_style()."""
+    """supports_prompt_box_style() / get_prompt_box_style() 的判定"""
 
     def test_a1111_without_option_is_unsupported(self):
         # 只有 compact_prompt_box、沒有 prompt_box_style → 不支援
@@ -160,7 +160,7 @@ class SupportsPromptBoxStyleTest(WebuiStubTestBase):
 
         self.assertFalse(supports_prompt_box_style())
         self.assertIsNone(get_prompt_box_style())
-        # 舊選項仍然有效 / The legacy option still works
+        # 舊選項仍然有效
         self.assertTrue(is_compact_prompt_box())
 
     def test_option_without_implementation_is_unsupported(self):
@@ -173,7 +173,7 @@ class SupportsPromptBoxStyleTest(WebuiStubTestBase):
 
         self.assertFalse(supports_prompt_box_style())
         self.assertIsNone(get_prompt_box_style())
-        # 不支援時不得把 Compact 當真 / Compact must not be trusted when unsupported
+        # 不支援時不得把 Compact 當真
         self.assertFalse(is_compact_prompt_box())
 
     def test_container_class_implementation_is_supported(self):
@@ -240,7 +240,7 @@ class SupportsPromptBoxStyleTest(WebuiStubTestBase):
 
 
 class IsCompactLayoutTest(unittest.TestCase):
-    """is_compact_layout() 的純結構偵測 / Pure structural detection in is_compact_layout()."""
+    """is_compact_layout() 的純結構偵測"""
 
     def test_detects_generate_box_compact_marker(self):
         generate_box = FakeBlock(

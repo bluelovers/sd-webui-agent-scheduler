@@ -1,6 +1,6 @@
-# preload.py 用於註冊命令列啟動參數 / preload.py registers command-line launch arguments
+# preload.py 用於註冊命令列啟動參數
 def preload(parser):
-    """註冊 Agent Scheduler 專屬的命令列參數 / Register Agent Scheduler's command-line arguments
+    """註冊 Agent Scheduler 專屬的命令列參數
 
     sd-webui 啟動時會呼叫此 hook 注入擴充所需的啟動選項，
     此處提供 sqlite 資料庫檔案路徑的自訂參數。

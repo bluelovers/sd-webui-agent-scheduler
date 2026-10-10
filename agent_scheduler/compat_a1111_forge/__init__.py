@@ -1,4 +1,4 @@
-"""sd-webui A1111 版與 Forge Neo 版的 infotext 相容匯出 / Infotext compatibility exports for sd-webui A1111 and Forge Neo versions
+"""sd-webui A1111 版與 Forge Neo 版的 infotext 相容匯出
 
 僅匯出 infotext 解析相關功能，其他相容工具（pydantic、paste_params）
 請直接從對應子模組匯入，以便在移植至其他模組時只引入所需功能。

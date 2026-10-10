@@ -1,5 +1,5 @@
 """
-_support.py — 測試共用基礎設施 / Shared infrastructure for the test suite.
+_support.py — 測試共用基礎設施
 
 設計原則:
 1. 只使用 Python 標準庫（unittest / pathlib / tempfile / shutil / json），
@@ -42,7 +42,7 @@ def workspace(name: str) -> Path:
     建立一個「乾淨」的測試工作目錄（同名者先整個刪除）。
     Create a clean workspace for a test (an existing one is removed first).
 
-    參數 / Parameters
+    參數
     ----------
     name : str
         工作目錄名稱，建議使用測試類別名稱以便對照。

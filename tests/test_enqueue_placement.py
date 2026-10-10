@@ -1,5 +1,5 @@
 """
-test_enqueue_placement.py — Enqueue 掛載點解析的固定測試 / Permanent tests for enqueue mount-point resolution.
+test_enqueue_placement.py — Enqueue 掛載點解析的固定測試
 
 涵蓋:
 1. classic 版面（有 {tab}_toprow / {tab}_actions_column）：
@@ -18,7 +18,7 @@ test_enqueue_placement.py — Enqueue 掛載點解析的固定測試 / Permanent
 3. 非掛載時機（其他元件、elem_id 為 None）一律回傳 None，不誤掛。
    Non-mounting moments (other components, elem_id None) always return None.
 
-執行 / Run:
+執行
     python tests/test_enqueue_placement.py
     python tests/run_tests.py
 """
@@ -36,7 +36,7 @@ from agent_scheduler.enqueue_placement import resolve_enqueue_mount_point  # noq
 
 
 def resolve(id_part, component_elem_id, compact, between):
-    """測試用的關鍵字參數包裝 / Keyword-argument wrapper for the tests."""
+    """測試用的關鍵字參數包裝"""
     return resolve_enqueue_mount_point(
         id_part=id_part,
         component_elem_id=component_elem_id,
@@ -133,7 +133,7 @@ class CompactLayoutTest(unittest.TestCase):
 
 
 class NonMountingMomentTest(unittest.TestCase):
-    """不是掛載時機的元件 / Components that are not mounting moments."""
+    """不是掛載時機的元件"""
 
     def test_unrelated_component_returns_none(self):
         for elem_id in (

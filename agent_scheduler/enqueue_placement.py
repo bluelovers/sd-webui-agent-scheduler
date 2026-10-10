@@ -1,4 +1,4 @@
-"""Enqueue 按鈕擺放解析 / Enqueue button placement resolution.
+"""Enqueue 按鈕擺放解析
 
 依「webui 版面（classic / Compact）＋ 使用者設定的擺放位置」解析 Enqueue 列
 應該掛進哪個容器，讓按鈕在版面切換時能跟著 Generate 一起移動。
@@ -12,7 +12,7 @@ This module deliberately uses only the standard library and touches no sd-webui
 API: a pure function stays unit-testable, while the version differences (which
 containers exist) are concentrated in the table below:
 
-| 版面 / Layout | Near Generate | Between Prompt and Generate |
+| 版面 | Near Generate | Between Prompt and Generate |
 |---|---|---|
 | classic（有 `{tab}_toprow` / `{tab}_actions_column`） | `{tab}_actions_column`（Generate 下方） | `{tab}_toprow`（提示詞與 actions 之間） |
 | Compact（無 toprow / actions_column，Generate 由 `Toprow.create_inline_toprow_image()` 渲染進 `{tab}_results`） | `{tab}_results`（Generate 上方，跟著 Generate 移動） | `{tab}_prompt_container`（提示詞下方） |
@@ -29,7 +29,7 @@ def resolve_enqueue_mount_point(
     compact: bool,
     between: bool,
 ) -> Optional[str]:
-    """解析 Enqueue 列的掛載容器 / Resolve the container that hosts the Enqueue row.
+    """解析 Enqueue 列的掛載容器
 
     由 after_component 依序對每個元件呼叫：只有當「目前這個元件」正是
     對應版面的掛載時機時才回傳容器 id，其餘回傳 None（不掛載）。
@@ -37,15 +37,11 @@ def resolve_enqueue_mount_point(
     returned only when the current component is the right mounting moment for
     the current layout; otherwise None (do not mount) is returned.
 
-    @param id_part - 版面前綴（txt2img / img2img）/ layout prefix (txt2img / img2img)
-    @param component_elem_id - 目前元件的 elem_id，可能為 None / the current
-        component's elem_id, may be None
-    @param compact - 是否為 Compact 版面 / whether the layout is Compact
-    @param between - 是否選用「提示詞與 Generate 之間」擺放 / whether the
-        "between prompt and generate" placement is selected
+    @param id_part - 版面前綴（txt2img / img2img）
+    @param component_elem_id - 目前元件的 elem_id，可能為 None
+    @param compact - 是否為 Compact 版面
+    @param between - 是否選用「提示詞與 Generate 之間」擺放
     @returns 應掛載的容器 elem_id；此元件不是掛載時機時回傳 None
-        the container elem_id to mount into, or None when this component is not
-        a mounting moment
     """
     if not component_elem_id:
         return None

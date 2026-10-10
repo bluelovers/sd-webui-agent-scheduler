@@ -1,5 +1,5 @@
 """
-test_shared_opts_backup.py — SharedOptsBackup 的固定測試 / Permanent tests for SharedOptsBackup.
+test_shared_opts_backup.py — SharedOptsBackup 的固定測試
 
 涵蓋:
 1. save_backup_file()：寫入指定 options 快照、含 computed 根目錄資訊、
@@ -14,7 +14,7 @@ test_shared_opts_backup.py — SharedOptsBackup 的固定測試 / Permanent test
 4. simplify_path()：路徑正規化的基本行為。
    simplify_path(): basic path normalization behavior.
 
-執行 / Run:
+執行
     python tests/test_shared_opts_backup.py
     python tests/run_tests.py
 """
@@ -48,7 +48,7 @@ class FakeOpts:
 
 
 class BackupFileTest(unittest.TestCase):
-    """save_backup_file() 的行為 / save_backup_file() behavior."""
+    """save_backup_file() 的行為"""
 
     def setUp(self):
         self.root = workspace("backup_file")
@@ -111,7 +111,7 @@ class BackupFileTest(unittest.TestCase):
 
 
 class BackupLifecycleTest(unittest.TestCase):
-    """set_shared_opts_core() / restore_shared_opts() 的生命週期 / lifecycle."""
+    """set_shared_opts_core() / restore_shared_opts() 的生命週期"""
 
     def test_backs_up_each_key_once(self):
         opts = FakeOpts(samples_save=False)
@@ -210,7 +210,7 @@ class BackupLifecycleTest(unittest.TestCase):
         # 2) 任務期間 shared.opts 存的是絕對路徑
         # 2) While the task runs, shared.opts holds an absolute path.
         live = opts.outdir_txt2img_samples
-        self.assertTrue(Path(live).is_absolute(), f"執行期間應為絕對路徑 / should be absolute: {live}")
+        self.assertTrue(Path(live).is_absolute(), f"執行期間應為絕對路徑: {live}")
         self.assertTrue(live.endswith("/txt2img-images"))
 
         # 3) 快照檔內容也是原始相對設定值
@@ -239,7 +239,7 @@ class BackupLifecycleTest(unittest.TestCase):
 
 
 class SimplifyPathTest(unittest.TestCase):
-    """simplify_path() 的基本正規化 / basic normalization of simplify_path()."""
+    """simplify_path() 的基本正規化"""
 
     CASES = [
         ("outputs/a/samples/../b", "outputs/a/b"),

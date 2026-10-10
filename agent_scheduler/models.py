@@ -1,4 +1,4 @@
-"""任務排程相關的 pydantic 資料模型 / Task-scheduling related pydantic data models
+"""任務排程相關的 pydantic 資料模型
 
 定義 queue API 與任務佇列所需的請求/回應模型，以及對外曝露的
 任務參數模型（Txt2Img / Img2Img）。為相容 A1111 與 Forge Neo
@@ -27,7 +27,7 @@ if PYDANTIC_V2:
 
 
 def convert_datetime_to_iso_8601_with_z_suffix(dt: datetime) -> str:
-    """將 datetime 轉為帶 Z 尾碼的 ISO 8601 字串 / Convert datetime to ISO 8601 string with Z suffix
+    """將 datetime 轉為帶 Z 尾碼的 ISO 8601 字串
 
     sd-webui 前端的任務時間通常以毫秒精度、UTC 的 Z 尾碼格式呈現，
     None 時回傳 None 以避免對未設定時間的欄位拋錯。
@@ -38,7 +38,7 @@ def convert_datetime_to_iso_8601_with_z_suffix(dt: datetime) -> str:
 
 
 def transform_to_utc_datetime(dt: datetime) -> datetime:
-    """將任意時區的 datetime 轉換為 UTC / Convert a datetime in any timezone to UTC
+    """將任意時區的 datetime 轉換為 UTC
 
     queue 內部統一以 UTC 儲存與比較時間，避免時區錯亂導致排序或顯示錯誤。
     The queue stores and compares times in UTC uniformly to avoid timezone
@@ -48,7 +48,7 @@ def transform_to_utc_datetime(dt: datetime) -> datetime:
 
 
 class QueueStatusAPI(BaseModel):
-    """查詢佇列狀態時的分頁參數 / Pagination params for querying queue status
+    """查詢佇列狀態時的分頁參數
 
     提供 limit/offset 讓前端以分頁方式拉取任務，避免一次回傳過多資料。
     Provides limit/offset so the frontend can page through tasks instead of
@@ -59,7 +59,7 @@ class QueueStatusAPI(BaseModel):
 
 
 class TaskModel(BaseModel):
-    """佇列中單一任務的完整資料模型 / Full data model for a single queued task
+    """佇列中單一任務的完整資料模型
 
     對外曝露給 API 的任務結構，涵蓋識別、類型、狀態、參數與時間等欄位，
     作為 queue 與 history 列表共用的核心模型。
@@ -94,9 +94,9 @@ class TaskModel(BaseModel):
 
 
 class Txt2ImgApiTaskArgs(StableDiffusionTxt2ImgProcessingAPI):
-    """txt2img 任務參數模型 / Task-argument model for txt2img
+    """txt2img 任務參數模型
 
-    繼承 sd-webui 內部的 Txt2Img API 模型，額外加入 checkpoint / vae /
+    繼承 sd-webui 內部的 Txt2Img API 模型，額外加入 checkpoint
     callback_url 等欄位，並依 pydantic 版本隱藏內部專用的 send_images /
     save_images 欄位。
     Extends sd-webui's internal Txt2Img API model, adding checkpoint / vae /
@@ -121,7 +121,7 @@ class Txt2ImgApiTaskArgs(StableDiffusionTxt2ImgProcessingAPI):
     )
 
     """
-    依 pydantic 版本選擇 schema 過濾的掛載方式 / Choose schema-filter mounting by pydantic version
+    依 pydantic 版本選擇 schema 過濾的掛載方式
 
     PYDANTIC_V2 旗標決定 pydantic 設定寫法，而過濾邏輯本身
     統一由 api_task_schema_extra 提供：
@@ -140,7 +140,7 @@ class Txt2ImgApiTaskArgs(StableDiffusionTxt2ImgProcessingAPI):
     兩者執行的是同一段欄位移除邏輯（移除 send_images / save_images）。
      Both execute the same field-removal logic (removing send_images / save_images).
      """
-    # 依 pydantic 版本選擇 schema 掛載方式：v2 用 model_config，v1 用 Config.schema_extra / Choose schema mounting by pydantic version: v2 model_config vs v1 Config.schema_extra
+    # 依 pydantic 版本選擇 schema 掛載方式：v2 用 model_config，v1 用 Config.schema_extra
     if PYDANTIC_V2:
         model_config = ConfigDict(json_schema_extra=api_task_schema_extra)
     else:
@@ -151,7 +151,7 @@ class Txt2ImgApiTaskArgs(StableDiffusionTxt2ImgProcessingAPI):
 
 
 class Img2ImgApiTaskArgs(StableDiffusionImg2ImgProcessingAPI):
-    """img2img 任務參數模型 / Task-argument model for img2img
+    """img2img 任務參數模型
 
     與 Txt2ImgApiTaskArgs 對稱，繼承 img2img 內部 API 模型並補上額外欄位，
     同樣依 pydantic 版本隱藏內部專用欄位。
@@ -176,14 +176,14 @@ class Img2ImgApiTaskArgs(StableDiffusionImg2ImgProcessingAPI):
     )
 
     """
-    依 pydantic 版本選擇 schema 過濾的掛載方式 / Choose schema-filter mounting by pydantic version
+    依 pydantic 版本選擇 schema 過濾的掛載方式
 
     與 Txt2ImgApiTaskArgs 相同的版本判斷：v2 用 model_config，
     v1 用 Config.schema_extra 包裝，兩者共用 api_task_schema_extra。
      Same version branching as Txt2ImgApiTaskArgs: v2 uses model_config,
      v1 wraps via Config.schema_extra, both share api_task_schema_extra.
      """
-    # 依 pydantic 版本選擇 schema 掛載方式：v2 用 model_config，v1 用 Config.schema_extra / Choose schema mounting by pydantic version: v2 model_config vs v1 Config.schema_extra
+    # 依 pydantic 版本選擇 schema 掛載方式：v2 用 model_config，v1 用 Config.schema_extra
     if PYDANTIC_V2:
         model_config = ConfigDict(json_schema_extra=api_task_schema_extra)
     else:
@@ -194,7 +194,7 @@ class Img2ImgApiTaskArgs(StableDiffusionImg2ImgProcessingAPI):
 
 
 class QueueTaskResponse(BaseModel):
-    """排入佇列後的回應 / Response returned after enqueuing a task
+    """排入佇列後的回應
 
     僅回傳新建立任務的 id 讓呼叫端後續追蹤狀態。
     Returns only the newly created task id so the caller can track it later.
@@ -203,7 +203,7 @@ class QueueTaskResponse(BaseModel):
 
 
 class QueueStatusResponse(BaseModel):
-    """佇列狀態回應 / Queue status response
+    """佇列狀態回應
 
     彙整目前進行中任務、待處理任務列表與佇列長度、暫停旗標，
     供前端渲染佇列畫面。
@@ -220,7 +220,7 @@ class QueueStatusResponse(BaseModel):
 
 
 class HistoryResponse(BaseModel):
-    """歷史任務列表回應 / History task list response
+    """歷史任務列表回應
 
     回傳分頁後的任務列表與總數，供 history 頁面顯示與分頁。
     Returns the (paged) task list and total count for the history page.
@@ -233,7 +233,7 @@ class HistoryResponse(BaseModel):
 
 
 class UpdateTaskArgs(BaseModel):
-    """更新任務時可修改的欄位 / Fields editable when updating a task
+    """更新任務時可修改的欄位
 
     僅開放 name / checkpoint / params 等可變更欄位，其餘皆不可經由更新 API 修改。
     Only exposes mutable fields like name / checkpoint / params; the rest cannot

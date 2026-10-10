@@ -12,7 +12,7 @@ def simplify_path(input_path: Union[PurePath, str]) -> Path:
     Textually normalize a path: drop '.' segments and cancel paired '..' segments
     segment-by-segment, without any filesystem access.
 
-    設計原因 / Rationale:
+    設計原因
     此函式只做字串層級的清理，因此即使路徑不存在、掛載點損毀或權限不足也能安全執行；
     junction／符號連結的實際展開交由後續 Path.resolve() 處理，兩者互補。
     Because this works purely on strings, it stays safe even when the target does not
@@ -91,20 +91,20 @@ class SharedOptsBackup:
         """
         Sets a shared option and backs it up only if it is not already backed up.
 
-        參數 / Parameters
+        參數
         ----------
         key : str
             The key of the shared option to be set.
         value : any
             The value to be set for the shared option.
 
-        回傳 / Returns
+        回傳
         -------
         最終存入的值；路徑型別會先展開（解析 junction／符號連結並轉絕對路徑）再儲存。
         The final stored value; path-like values are expanded (junction /
         symlink resolved, made absolute) before storing.
 
-        設計原因（延後展開） / Design rationale (deferred expansion):
+        設計原因（延後展開）
         路徑展開集中在此處進行，呼叫端可先以相對路徑（含 '..'）傳入，
         直到真正寫入 shared.opts 時才 resolve。這能避免任務執行中途因 CWD 位於
         junction 捷徑（Windows MAX_PATH=260）而超過路徑長度上限，導致存圖時
@@ -115,7 +115,7 @@ class SharedOptsBackup:
         sits on a junction symlink, which would otherwise make builtins.open raise
         FileNotFoundError during image saving.
 
-        備份前的修復 / Repair before backup:
+        備份前的修復
         若原值是上次任務中斷（未還原設定）殘留的巢狀輸出路徑，會先修復成原始目錄
         再備份，避免本次結束時把錯誤路徑還原進設定（見 task_output.repair_stale_outdir）。
         When the original value is a nested output path left by a task that was
@@ -208,7 +208,7 @@ class SharedOptsBackup:
         Persist the pre-task original option values into the day folder as an
         auditable settings snapshot.
 
-        參數 / Parameters
+        參數
         ----------
         day_dir : Union[PurePath, str]
             當日資料夾路徑（例：outputs/agent-scheduler/2026-10-10）。
@@ -226,12 +226,12 @@ class SharedOptsBackup:
             task_dir, samples_base, …), stored alongside the snapshot so a task's
             output location can be traced back to the root it was built from.
 
-        回傳 / Returns
+        回傳
         -------
         寫入的檔案路徑；因同日已存在而略過或寫入失敗時回傳 None。
         The written path, or None when skipped (already exists) or on failure.
 
-        設計原因 / Rationale:
+        設計原因
         每天只保留當日第一次任務寫下的快照，代表「當天啟動排程前」的原始設定；
         後續任務共用同一份，避免互相覆寫造成原始值失真。
         Only the first task of a day writes the snapshot, so it represents the
@@ -272,7 +272,7 @@ class SharedOptsBackup:
         except Exception as e:
             # 備份失敗只記錄、不向上拋出，避免中斷任務執行
             # Backup failure is logged and swallowed so the task is never aborted by it.
-            log.warning(f"[AgentScheduler] 寫入設定備份檔失敗 / failed to write settings backup: {e}")
+            log.warning(f"[AgentScheduler] 寫入設定備份檔失敗: {e}")
             return None
 
     def restore_shared_opts(self):

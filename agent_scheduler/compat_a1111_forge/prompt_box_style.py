@@ -1,4 +1,4 @@
-"""prompt 版面選項（prompt_box_style）的版本相容工具 / Version-compatible helpers for the prompt box layout option (prompt_box_style)
+"""prompt 版面選項（prompt_box_style）的版本相容工具
 
 Forge 提供 shared.opts.prompt_box_style（Default / Compact / Scrollable / Accordion），
 A1111 則使用舊的 compact_prompt_box 布林選項，兩者介面不同。
@@ -32,12 +32,12 @@ PROMPT_BOX_STYLE_COMPACT = "Compact"
 GENERATE_BOX_COMPACT_CLASS = "generate-box-compact"
 PROMPT_CONTAINER_COMPACT_CLASS = "prompt-container-compact"
 
-# 結構偵測時最多往上追溯的父層數 / How many parents to walk up during structural detection
+# 結構偵測時最多往上追溯的父層數
 _MAX_PARENT_DEPTH = 4
 
 
 def _get_shared() -> Any:
-    """取得 modules.shared；不存在時回傳 None / Get modules.shared, or None when unavailable."""
+    """取得 modules.shared；不存在時回傳 None"""
     try:
         from modules import shared
     except Exception:
@@ -46,7 +46,7 @@ def _get_shared() -> Any:
 
 
 def _get_toprow_class() -> Any:
-    """取得 modules.ui_toprow.Toprow；不存在時回傳 None / Get modules.ui_toprow.Toprow, or None when unavailable."""
+    """取得 modules.ui_toprow.Toprow；不存在時回傳 None"""
     try:
         from modules import ui_toprow
     except Exception:
@@ -55,7 +55,7 @@ def _get_toprow_class() -> Any:
 
 
 def _has_prompt_box_style_option(shared: Any) -> bool:
-    """shared.opts 是否定義 prompt_box_style 選項 / Whether shared.opts defines the prompt_box_style option.
+    """shared.opts 是否定義 prompt_box_style 選項
 
     注意：此判定只代表「有這個選項」，不代表 UI 真的會套用它，
     實作有無請交給 supports_prompt_box_style() 判斷。
@@ -87,7 +87,7 @@ def _mentions_prompt_box_style(fn: Any) -> Optional[bool]:
 
 
 def supports_prompt_box_style() -> bool:
-    """webui 是否「真的」實作 prompt_box_style 版面切換 / Whether the webui really implements the prompt_box_style layout switch.
+    """webui 是否「真的」實作 prompt_box_style 版面切換
 
     只看到 shared.opts.prompt_box_style 並不代表支援：必須由 ui_toprow 的實作佐證，
     包括 _container_class()（把選項轉成提示詞容器 class），或 create_prompts() /
@@ -97,20 +97,20 @@ def supports_prompt_box_style() -> bool:
     maps the option to a prompt container class), or the way create_prompts() /
     __init__() reads shared.opts.prompt_box_style directly.
 
-    @returns True 表示此 webui 支援 prompt_box_style 版面切換 / True when this webui
+    @returns True 表示此 webui 支援 prompt_box_style 版面切換
         supports the prompt_box_style layout switch
     """
     shared = _get_shared()
     if shared is None or not _has_prompt_box_style_option(shared):
-        # 選項不存在（如 A1111）→ 不支援 / Option absent (e.g. A1111): unsupported
+        # 選項不存在（如 A1111）→ 不支援
         return False
 
     toprow = _get_toprow_class()
     if toprow is None:
-        # 找不到 Toprow 無法證實實作 → 不支援 / No Toprow to verify against: unsupported
+        # 找不到 Toprow 無法證實實作 → 不支援
         return False
 
-    # 1) _container_class() 是 forge 把選項套用到版面的入口 / _container_class() is forge's entry point for applying the option
+    # 1) _container_class() 是 forge 把選項套用到版面的入口
     if callable(getattr(toprow, "_container_class", None)):
         return True
 
@@ -134,7 +134,7 @@ def supports_prompt_box_style() -> bool:
 
 
 def get_prompt_box_style() -> Optional[str]:
-    """取得 prompt_box_style 選項值；不支援時回傳 None / Get the prompt_box_style value, or None when unsupported.
+    """取得 prompt_box_style 選項值；不支援時回傳 None
 
     @returns 選項字串（Default / Compact / Scrollable / Accordion）或 None
         the option string, or None when this webui does not support the option
@@ -149,7 +149,7 @@ def get_prompt_box_style() -> Optional[str]:
 
 
 def is_compact_prompt_box() -> bool:
-    """目前是否為 Compact 版面 / Whether the current layout is the Compact one.
+    """目前是否為 Compact 版面
 
     優先使用 webui 的 prompt_box_style（需先通過支援偵測）；
     不支援時退回 A1111 的 compact_prompt_box 舊選項，維持向後相容。
@@ -157,13 +157,13 @@ def is_compact_prompt_box() -> bool:
     first), then falls back to A1111's legacy compact_prompt_box option for
     backward compatibility.
 
-    @returns 是否為 Compact 版面 / whether the layout is compact
+    @returns 是否為 Compact 版面
     """
     style = get_prompt_box_style()
     if style is not None:
         return style == PROMPT_BOX_STYLE_COMPACT
 
-    # 舊版 A1111：以 compact_prompt_box 布林選項控制 / Legacy A1111: controlled by the compact_prompt_box boolean
+    # 舊版 A1111：以 compact_prompt_box 布林選項控制
     shared = _get_shared()
     if shared is None:
         return False
@@ -171,7 +171,7 @@ def is_compact_prompt_box() -> bool:
 
 
 def is_compact_layout(component: Any) -> bool:
-    """以「實際建立出來的元件結構」判斷是否為 Compact 版面 / Detect the Compact layout from the component tree that was actually built.
+    """以「實際建立出來的元件結構」判斷是否為 Compact 版面
 
     ui_toprow 只在 Compact 時給 generate box 加上 generate-box-compact、
     給提示詞容器加上 prompt-container-compact，因此比對這些標記 class
@@ -188,7 +188,7 @@ def is_compact_layout(component: Any) -> bool:
 
     @param component - 起始元件（通常是當前觸發 after_component 的元件）
         the starting component (typically the one triggering after_component)
-    @returns 是否為 Compact 版面 / whether the layout is compact
+    @returns 是否為 Compact 版面
     """
     node = component
     for _ in range(_MAX_PARENT_DEPTH):

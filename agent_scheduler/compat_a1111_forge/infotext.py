@@ -1,4 +1,4 @@
-"""infotext 解析相容工具 / infotext parsing compatibility utilities"""
+"""infotext 解析相容工具"""
 
 from typing import Any
 
@@ -7,7 +7,7 @@ def parse_generation_parameters(
     infotext: str, skip_fields: list[str] | None = None
 ) -> dict[str, Any]:
     """
-    解析生成參數的 infotext 字串為字典 / Parse generation parameter infotext string into a dictionary
+    解析生成參數的 infotext 字串為字典
 
     此函式作為相容性封裝層，統一處理不同 sd-webui 版本間
     解析函式所在模組位置不同的差異，對呼叫端隱藏版本差異。
@@ -20,9 +20,9 @@ def parse_generation_parameters(
     The Neo version's parser accepts an extra skip_fields argument,
     while legacy A1111 does not, so it is only forwarded when provided.
 
-    @param infotext - 包含生成參數的資訊文字 / Infotext containing generation parameters
+    @param infotext - 包含生成參數的資訊文字
     @param skip_fields - 要跳過的欄位名稱列表（僅 Neo 支援）/ Field names to skip (Neo only)
-    @returns 解析後的生成參數字典 / Parsed generation parameter dictionary
+    @returns 解析後的生成參數字典
     """
     try:
         from modules.infotext_utils import parse_generation_parameters as parse

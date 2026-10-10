@@ -1,5 +1,5 @@
 """
-task_output.py — 任務輸出資料夾的清理與原因報告 / Task output folder cleanup and reason reporting.
+task_output.py — 任務輸出資料夾的清理與原因報告
 
 本模組在任務結束後維護該次任務的輸出資料夾：
 1. 由內往外移除任務資料夾底下的空子目錄（例如未產出任何圖的 samples／grids）。
@@ -66,12 +66,12 @@ LEGACY_TASK_LABEL_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_.+
 
 
 def _is_day_part(part: str) -> bool:
-    """是否為當日資料夾層 / Whether the part is a day folder."""
+    """是否為當日資料夾層"""
     return bool(DAY_FOLDER_PATTERN.match(part))
 
 
 def _is_task_label(part: str) -> bool:
-    """是否為任務標籤層（含新舊格式） / Whether the part is a task label (any era)."""
+    """是否為任務標籤層（含新舊格式）"""
     return bool(TASK_LABEL_PATTERN.match(part)) or bool(LEGACY_TASK_LABEL_PATTERN.match(part))
 
 
@@ -89,7 +89,7 @@ def find_scheduler_index(path: Union[Path, str]) -> Optional[int]:
     Locate the index where the scheduler output tree begins inside the path;
     return None when the path is not part of that tree.
 
-    判定條件 / Conditions:
+    判定條件
     1. 路徑必須含任務標籤層（HH-MM-SS_xxx 或舊版格式）——真正的使用者目錄幾乎不可能
        命中，可避免把一般日期資料夾誤判為巢狀殘留。
        The path must contain a task label layer — a real user directory almost never
@@ -140,11 +140,11 @@ def repair_stale_outdir(value: Any) -> Optional[Path]:
     Repair a nested output path left behind in shared.opts when the previous task
     was interrupted before its settings were restored.
 
-    例如 / e.g.:
+    例如
     ``D:/out/agent-scheduler/2026-10-10/11-16-47_task(a)/samples``
     → ``D:/out/samples``（去掉整棵排程輸出樹，只保留原始目錄名）
 
-    回傳 / Returns
+    回傳
     -------
     修正後的路徑；不是巢狀殘留、或無法推回原始目錄名時回傳 None。
     The repaired path, or None when the value is not a leftover or when the
@@ -182,7 +182,7 @@ def resolve_samples_base(samples_base: Union[Path, str]) -> Path:
     Resolve the samples base for this task, repairing a nested path left over from a
     previously interrupted task back to the original directory.
 
-    兩種殘留情況 / Two leftover cases:
+    兩種殘留情況
     1. 可修復（原始目錄名可考）→ 回傳修復後的路徑並記錄 warning。
        Recoverable (original directory name derivable) → return the repaired path
        and log a warning.
@@ -221,7 +221,7 @@ def compose_output_root(samples_base: Union[Path, str]) -> Path:
     正常情況：基準往上一層再接 'agent-scheduler'（維持既有行為）。
     Normal case: base's parent plus 'agent-scheduler' (unchanged behavior).
 
-    根目錄守門 / Root guard:
+    根目錄守門
     若（修復後的）基準仍落在排程輸出樹內，表示它是上次中斷殘留的路徑，
     改用「樹之前的前綴 + agent-scheduler」當根目錄，確保不會再多疊一層。
     If the (possibly repaired) base still sits inside the scheduler output tree it is
@@ -279,10 +279,10 @@ def remove_empty_subdirs(root: Union[Path, str]) -> None:
             return
         children = list(root_path.iterdir())
     except OSError as e:
-        log.debug(f"[AgentScheduler] 無法列舉目錄 / cannot list {root}: {e}")
+        log.debug(f"[AgentScheduler] 無法列舉目錄 {root}: {e}")
         return
 
-    # 先處理子層再刪自己，才能把最深的空目錄先清掉 / Process children before the
+    # 先處理子層再刪自己，才能把最深的空目錄先清掉
     # parent so the deepest empty directory is removed first.
     for child in children:
         try:
@@ -290,10 +290,10 @@ def remove_empty_subdirs(root: Union[Path, str]) -> None:
                 continue
             remove_empty_subdirs(child)
             child.rmdir()
-            log.debug(f"[AgentScheduler] 已刪除空資料夾 / removed empty dir {child}")
+            log.debug(f"[AgentScheduler] 已刪除空資料夾 {child}")
         except OSError as e:
-            # 非空、無權限或被占用：保留原狀即可 / Non-empty, unauthorized or locked: keep as is.
-            log.debug(f"[AgentScheduler] 略過目錄 / skip dir {child}: {e}")
+            # 非空、無權限或被占用：保留原狀即可
+            log.debug(f"[AgentScheduler] 略過目錄 {child}: {e}")
 
 
 def _is_dir_empty(path: Path) -> bool:
@@ -312,7 +312,7 @@ def _probe_dir_state(task_dir: Path) -> Tuple[bool, bool, List[str]]:
     探測任務資料夾的磁碟空間與可寫入狀態。
     Probe the task folder for free disk space and writability.
 
-    回傳 / Returns
+    回傳
     -------
     (disk_full, not_writable, notes)
         notes 為可供報告引用的雙語說明文字。
@@ -322,17 +322,17 @@ def _probe_dir_state(task_dir: Path) -> Tuple[bool, bool, List[str]]:
     not_writable = False
     notes: List[str] = []
 
-    # 磁碟剩餘空間 / Free disk space
+    # 磁碟剩餘空間
     try:
         free = shutil.disk_usage(str(task_dir)).free
         free_gb = free / (1024 ** 3)
         if free < LOW_DISK_THRESHOLD:
             disk_full = True
-            notes.append(f"硬碟剩餘空間不足 / low free space: {free_gb:.2f} GB")
+            notes.append(f"硬碟剩餘空間不足: {free_gb:.2f} GB")
         else:
-            notes.append(f"硬碟剩餘空間 / free space: {free_gb:.2f} GB")
+            notes.append(f"硬碟剩餘空間: {free_gb:.2f} GB")
     except Exception as e:
-        notes.append(f"無法檢測磁碟空間 / cannot read disk usage: {e}")
+        notes.append(f"無法檢測磁碟空間: {e}")
 
     # 實際寫入一個探測檔：磁碟滿與無權限在這裡最能被如實反映
     # Write a probe file: this is the most faithful test for a full disk or missing permission.
@@ -341,9 +341,9 @@ def _probe_dir_state(task_dir: Path) -> Tuple[bool, bool, List[str]]:
         with open(probe, "w", encoding="utf-8") as f:
             f.write("")
         probe.unlink()
-        notes.append("資料夾可寫入 / folder is writable")
+        notes.append("資料夾可寫入")
     except OSError as e:
-        # 探測檔若已建立失敗也要清掉，避免殘留隱藏檔 / Remove any partial probe file.
+        # 探測檔若已建立失敗也要清掉，避免殘留隱藏檔
         try:
             if probe.exists():
                 probe.unlink()
@@ -355,15 +355,15 @@ def _probe_dir_state(task_dir: Path) -> Tuple[bool, bool, List[str]]:
         # being misread as a write failure.
         if e.errno in (errno.ENOSPC, getattr(errno, "EDQUOT", -1)):
             disk_full = True
-            notes.append(f"磁碟已滿，無法寫入 / disk full, cannot write: {e}")
+            notes.append(f"磁碟已滿，無法寫入: {e}")
         elif e.errno in (errno.EACCES, errno.EPERM):
             not_writable = True
-            notes.append(f"無寫入權限 / no write permission: {e}")
+            notes.append(f"無寫入權限: {e}")
         else:
             not_writable = True
-            notes.append(f"無法寫入 / cannot write: {e}")
+            notes.append(f"無法寫入: {e}")
     except Exception as e:
-        notes.append(f"寫入測試失敗 / write probe failed: {e}")
+        notes.append(f"寫入測試失敗: {e}")
 
     return disk_full, not_writable, notes
 
@@ -391,22 +391,22 @@ def _detect_reasons(
     error_text = str(error) if error is not None else ""
     status_value = _status_value(status)
 
-    # 取消任務 / Task cancelled
+    # 取消任務
     if interrupted or status_value == STATUS_INTERRUPTED:
-        hits.append("取消任務 / task was cancelled (interrupted)")
+        hits.append("取消任務")
 
-    # 任務出錯 / Task failed
+    # 任務出錯
     if failed or status_value == STATUS_FAILED:
-        hits.append("任務出錯 / task failed" + (f": {error_text}" if error_text else ""))
+        hits.append("任務出錯" + (f": {error_text}" if error_text else ""))
     elif error_text:
-        notes.append(f"錯誤訊息 / error message: {error_text}")
+        notes.append(f"錯誤訊息: {error_text}")
 
     # 佇列被傾空：任務仍停在 pending，代表還沒輪到執行就被清空／移除
     # Queue purged: still pending means it was cleared before ever running.
     if queue_purged and not failed and not interrupted:
-        hits.append("佇列被傾空，任務未執行或已被清除 / queue purged, task never produced output")
+        hits.append("佇列被傾空，任務未執行或已被清除")
 
-    # 錯誤文字直接透露磁碟滿 / Error text explicitly says the disk is full
+    # 錯誤文字直接透露磁碟滿
     lowered = error_text.lower()
     disk_full_text = any(marker in lowered for marker in DISK_FULL_MARKERS)
 
@@ -414,14 +414,14 @@ def _detect_reasons(
     notes.extend(probe_notes)
 
     if disk_full or disk_full_text:
-        hits.append("硬碟滿了，無法寫入新內容 / disk full, nothing could be written")
+        hits.append("硬碟滿了，無法寫入新內容")
 
     if not_writable:
         hits.append("無法寫入（權限或路徑問題） / cannot write (permission or path issue)")
 
-    # 全部條件皆不成立 → 允許以「其他／未知原因」結案 / Nothing matched: allow "unknown".
+    # 全部條件皆不成立 → 允許以「其他／未知原因」結案
     if not hits:
-        hits.append("其他／未知原因 / other or unknown reason")
+        hits.append("其他／未知原因")
 
     return hits, notes
 
@@ -458,32 +458,32 @@ def _write_cleanup_report(
     report_path = task_dir.with_name(task_dir.name + ".txt")
     status_text = _status_value(status) or "unknown"
 
-    # 逐項加上 是否命中的標記 / Prefix each reason with an explicit hit marker
+    # 逐項加上 是否命中的標記
     hit_lines = "\n".join(f"  - {reason}" for reason in hits)
     note_lines = "\n".join(f"  - {note}" for note in notes) if notes else "  - (none)"
 
     if deleted:
-        delete_text = "是，空資料夾已刪除 / yes, the empty folder was removed"
+        delete_text = "是，空資料夾已刪除"
     elif delete_error:
-        delete_text = f"否 / no ({delete_error})"
+        delete_text = f"否 ({delete_error})"
     else:
-        delete_text = "否 / no"
+        delete_text = "否"
 
     content = "\n".join(
         [
-            "[AgentScheduler] 任務資料夾清理報告 / Task folder cleanup report",
+            "[AgentScheduler] 任務資料夾清理報告",
             "=" * 60,
-            f"任務 ID / Task ID   : {task_id}",
-            f"資料夾 / Folder     : {task_dir.parent.name}/{task_dir.name}",
-            f"建立時間 / Created  : {folder_mtime}",
-            f"清理時間 / Cleaned  : {datetime.now().isoformat(timespec='seconds')}",
-            f"任務狀態 / Status   : {status_text}",
-            f"刪除結果 / Deleted  : {delete_text}",
+            f"任務 ID : {task_id}",
+            f"資料夾  : {task_dir.parent.name}/{task_dir.name}",
+            f"建立時間: {folder_mtime}",
+            f"清理時間: {datetime.now().isoformat(timespec='seconds')}",
+            f"任務狀態: {status_text}",
+            f"刪除結果: {delete_text}",
             "",
-            "判定原因 / Detected reason(s):",
+            "判定原因:",
             hit_lines,
             "",
-            "補充說明 / Details:",
+            "補充說明:",
             note_lines,
             "",
         ]
@@ -492,10 +492,10 @@ def _write_cleanup_report(
     try:
         with open(report_path, "w", encoding="utf-8") as f:
             f.write(content)
-        log.info(f"[AgentScheduler] 已寫入空資料夾報告 / empty folder report written: {report_path}")
+        log.info(f"[AgentScheduler] 已寫入空資料夾報告: {report_path}")
         return report_path
     except Exception as e:
-        log.warning(f"[AgentScheduler] 無法寫入空資料夾報告 / cannot write empty folder report: {e}")
+        log.warning(f"[AgentScheduler] 無法寫入空資料夾報告: {e}")
         return None
 
 
@@ -520,7 +520,7 @@ def cleanup_task_output_dir(
     Every exception is caught inside this function and only logged, so the next task
     is never affected.
 
-    注意 / Note:
+    注意
     只會作用於「單一任務資料夾」；當日資料夾（YYYY-MM-DD）與輸出根目錄會被防禦性略過，
     因為同名 .txt 報告必須保留在當日資料夾內。
     Only a single task folder is processed; the day folder (YYYY-MM-DD) and the output
@@ -544,12 +544,12 @@ def cleanup_task_output_dir(
         # by mistake, skip it entirely, so cleanup can never remove the day folder
         # that holds the .txt reports.
         if DAY_FOLDER_PATTERN.match(task_dir_path.name) or task_dir_path.name == OUTPUT_ROOT_NAME:
-            log.debug(f"[AgentScheduler] 略過非任務資料夾 / not a task folder, skipped: {task_dir_path}")
+            log.debug(f"[AgentScheduler] 略過非任務資料夾: {task_dir_path}")
             return
 
         remove_empty_subdirs(task_dir_path)
 
-        # 任務有產出（資料夾非空）→ 不刪除、不報告 / The task produced output: keep it.
+        # 任務有產出（資料夾非空）→ 不刪除、不報告
         if not _is_dir_empty(task_dir_path):
             return
 
@@ -571,12 +571,12 @@ def cleanup_task_output_dir(
         try:
             task_dir_path.rmdir()
             deleted = True
-            log.info(f"[AgentScheduler] 已刪除空任務資料夾 / removed empty task folder {task_dir_path}")
+            log.info(f"[AgentScheduler] 已刪除空任務資料夾 {task_dir_path}")
         except OSError as e:
-            # 常見於無權限或資料夾被占用；保留原狀並寫進報告 / Usually permission or
+            # 常見於無權限或資料夾被占用；保留原狀並寫進報告
             # locking related; keep the folder and record this in the report.
             delete_error = str(e)
-            log.warning(f"[AgentScheduler] 無法刪除任務資料夾 / cannot remove task folder {task_dir_path}: {e}")
+            log.warning(f"[AgentScheduler] 無法刪除任務資料夾 {task_dir_path}: {e}")
 
         _write_cleanup_report(
             task_dir_path,
@@ -589,6 +589,6 @@ def cleanup_task_output_dir(
             folder_mtime=folder_mtime,
         )
     except Exception as e:
-        # 兜底捕捉：清理永遠不應讓排程執行緒崩潰 / Safety net: cleanup must never
+        # 兜底捕捉：清理永遠不應讓排程執行緒崩潰
         # crash the runner thread.
-        log.warning(f"[AgentScheduler] 清理任務資料夾失敗 / cleanup failed for {task_dir}: {e}")
+        log.warning(f"[AgentScheduler] 清理任務資料夾失敗 {task_dir}: {e}")

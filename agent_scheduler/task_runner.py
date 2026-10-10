@@ -515,7 +515,7 @@ class TaskRunner:
                             # The samples base used to compose the paths (relative, may
                             # contain '..').
                             "samples_base": outdir_path_samples_old.as_posix(),
-                            # 當時計算用的根目錄 / The root computed at that time.
+                            # 當時計算用的根目錄
                             "root": root_abs.as_posix(),
                             "day_dir": day_dir_abs.as_posix(),
                             "task_dir": task_dir_abs.as_posix(),

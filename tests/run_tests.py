@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 """
-run_tests.py — 一次執行 tests/ 底下所有測試 / Run every test under tests/.
+run_tests.py — 一次執行 tests/ 底下所有測試
 
-用法 / Usage:
+用法
     python tests/run_tests.py
     python tests/run_tests.py -v          # 詳細輸出（預設已為 verbosity=2）
 
-依賴 / Dependencies:
+依賴
     僅 Python 標準庫（unittest），不需 pytest；被測模組只用到 sd-webui 環境
     本就存在的 gradio / requests，因此請以「sd-webui 自己的 Python」執行。
     Standard library only (unittest); no pytest. The modules under test only
     need gradio / requests, which the sd-webui environment already ships, so run
     this with "sd-webui's own Python".
 
-環境變數 / Environment variables:
+環境變數
     AGENT_SCHEDULER_TEST_DIR
         指定測試產物的根目錄（預設系統暫存目錄）。
         Root directory for test artifacts (defaults to the system temp dir).
 
-回傳值 / Exit code:
-    0 = 全部通過 / all passed；1 = 有失敗 / at least one failure.
+回傳值
+    0 = 全部通過；1 = 有失敗
 """
 
 import sys

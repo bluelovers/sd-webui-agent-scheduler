@@ -1,5 +1,5 @@
 """
-test_task_output.py — task_output 模組的固定測試 / Permanent tests for task_output.
+test_task_output.py — task_output 模組的固定測試
 
 涵蓋:
 1. 巢狀殘留路徑的判斷與修復（上次任務在還原設定前中斷）。
@@ -11,7 +11,7 @@ test_task_output.py — task_output 模組的固定測試 / Permanent tests for 
 3. 任務結束後的空資料夾清理、當日資料夾防護、.txt 原因報告。
    Post-task empty folder cleanup, day-folder protection and the .txt reason report.
 
-執行 / Run:
+執行
     python tests/test_task_output.py
     python tests/run_tests.py
 """
@@ -47,7 +47,7 @@ STALE_CASES = [
     # leaf is the original directory name itself.
     ("D:/sd-forge/output/agent-scheduler/2026-10-10/11-16-47_task(a)/txt2img-images",
      "D:/sd-forge/output/txt2img-images", "D:/sd-forge/output"),
-    # 中斷兩次造成的雙重巢狀 / double nesting after two interrupted runs
+    # 中斷兩次造成的雙重巢狀
     ("D:/out/agent-scheduler/2026-10-10/11-16-47_task(a)/agent-scheduler/2026-10-10/23-04-38_task(b)/samples",
      "D:/out/samples", "D:/out"),
     # 舊版：無 agent-scheduler 層（日期 + 任務標籤）
@@ -65,7 +65,7 @@ STALE_CASES = [
     # 使用者自己的資料夾剛好叫 2026-10-10：以 agent-scheduler 為錨點
     ("D:/photos/2026-10-10/agent-scheduler/2026-10-10/11-16-47_task(a)/samples",
      "D:/photos/2026-10-10/samples", "D:/photos/2026-10-10"),
-    # 以下為「一般使用者路徑」，一律不得誤判 / none of these may be touched
+    # 以下為「一般使用者路徑」，一律不得誤判
     ("outputs/txt2img-images/samples", None, None),
     # 真實設定值本身（相對路徑，正／反斜線）不得被當成殘留
     # The real config value (relative, forward/backslash) is never a leftover.
@@ -102,7 +102,7 @@ ROOT_CASES = [
 
 
 class RepairStaleOutdirTest(unittest.TestCase):
-    """巢狀殘留路徑的判斷與修復 / Detection and repair of nested leftover paths."""
+    """巢狀殘留路徑的判斷與修復"""
 
     def test_repair_and_prefix(self):
         for raw, expected_repair, expected_prefix in STALE_CASES:
@@ -127,7 +127,7 @@ class RepairStaleOutdirTest(unittest.TestCase):
 
 
 class ComposeOutputRootTest(unittest.TestCase):
-    """輸出根目錄推導（含根目錄守門） / Output root derivation incl. the root guard."""
+    """輸出根目錄推導（含根目錄守門）"""
 
     def test_root_matches_expected(self):
         for base, expected_root in ROOT_CASES:
@@ -171,7 +171,7 @@ class ComposeOutputRootTest(unittest.TestCase):
 
 
 class CleanupTaskOutputDirTest(unittest.TestCase):
-    """任務結束後的空資料夾清理與原因報告 / Post-task cleanup and reason report."""
+    """任務結束後的空資料夾清理與原因報告"""
 
     def setUp(self):
         self.root = workspace("cleanup")
@@ -188,7 +188,7 @@ class CleanupTaskOutputDirTest(unittest.TestCase):
         self.assertFalse((self.root / "14-01-00_taskB.txt").exists())  # 有產出 → 不報告
 
     def test_removes_fully_empty_task_folder_and_writes_report(self):
-        # 含多層空子目錄，確認由內往外整個清掉 / nested empty dirs must go away too
+        # 含多層空子目錄，確認由內往外整個清掉
         task = make_task_tree(self.root / "14-00-00_taskA", "samples/a/b", "grids")
 
         cleanup_task_output_dir(task, task_id="taskA", status="interrupted", interrupted=True)
@@ -243,7 +243,7 @@ class CleanupTaskOutputDirTest(unittest.TestCase):
         self.assertTrue(out_root.exists())
         self.assertTrue(nested_task.exists())
 
-        # 但真正的任務資料夾仍會被正常清理 / a real task folder is still cleaned
+        # 但真正的任務資料夾仍會被正常清理
         cleanup_task_output_dir(
             nested_task, task_id="taskY", status="failed", failed=True, error=RuntimeError("boom")
         )

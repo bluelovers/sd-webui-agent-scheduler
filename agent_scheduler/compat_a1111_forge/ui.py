@@ -1,11 +1,11 @@
-"""gradio UI 相依結構的版本相容工具 / Version-compatible utilities for gradio UI dependency structures"""
+"""gradio UI 相依結構的版本相容工具"""
 
 import json
 
 from typing import Any, Dict, List
 
 """
-統一取得 gradio Blocks 的 click 相依列表 / Uniformly get the click dependencies of a gradio Blocks
+統一取得 gradio Blocks 的 click 相依列表
 
 舊版 gradio (A1111 classic) 以 root.dependencies 儲存，其元素為 dict，
 包含 trigger / targets / inputs / outputs 等以元件 id 表示的欄位。
@@ -21,10 +21,10 @@ This function normalizes both into the legacy dict format for reuse by existing 
 
 
 def get_ui_dependencies(root: Any) -> List[Dict[str, Any]]:
-    """取得正規化的 UI 相依列表 / Get the normalized UI dependency list
+    """取得正規化的 UI 相依列表
 
-    @param root - gradio Blocks 實例 / gradio Blocks instance
-    @returns 正規化相依列表，元素格式為 / Normalized dependency list, each element shaped as
+    @param root - gradio Blocks 實例
+    @returns 正規化相依列表，元素格式為
         {"trigger": str, "targets": [int], "inputs": [int], "outputs": [int]}
     """
     if hasattr(root, "dependencies"):
@@ -45,15 +45,15 @@ def get_ui_dependencies(root: Any) -> List[Dict[str, Any]]:
 
 
 def get_ui_fns(root: Any) -> List[Any]:
-    """取得 BlockFunction 物件列表 / Get the list of BlockFunction objects
+    """取得 BlockFunction 物件列表
 
     新版 gradio 的 root.fns 為 dict，迭代時會得到 id 鍵而非函式物件；
     此 helper 統一回傳可迭代的 BlockFunction 列表。
     Newer gradio's root.fns is a dict, so iterating yields id keys instead of
     function objects; this helper uniformly returns an iterable list of BlockFunction.
 
-    @param root - gradio Blocks 實例 / gradio Blocks instance
-    @returns BlockFunction 物件列表 / List of BlockFunction objects
+    @param root - gradio Blocks 實例
+    @returns BlockFunction 物件列表
     """
     fns = getattr(root, "fns", None)
     if isinstance(fns, dict):
@@ -62,7 +62,7 @@ def get_ui_fns(root: Any) -> List[Any]:
 
 
 def get_ui_task_geninfo(result: Any) -> Any:
-    """從 txt2img / img2img 的 UI 回傳元組中取出 generation info JSON 字串 / Extract the generation info JSON string from a txt2img / img2img UI result tuple
+    """從 txt2img / img2img 的 UI 回傳元組中取出 generation info JSON 字串
 
     A1111 回傳 (images, geninfo, html_info, comments)，geninfo 位於索引 1。
     Forge 回傳 (gallery, video_arg, geninfo, html_info, comments)，geninfo 位於索引 2。
@@ -71,8 +71,8 @@ def get_ui_task_geninfo(result: Any) -> Any:
     Forge returns (gallery, video_arg, geninfo, html_info, comments) with geninfo at index 2.
     The geninfo is located by being a string parseable as JSON, so both structures work.
 
-    @param result - wrap_gradio_call 的回傳元組 / result tuple from wrap_gradio_call
-    @returns geninfo JSON 字串；找不到時回傳 None / geninfo JSON string, or None if not found
+    @param result - wrap_gradio_call 的回傳元組
+    @returns geninfo JSON 字串；找不到時回傳 None
     """
     # 從第 2 個元素開始掃描：geninfo 是「可解析為 JSON 的字串」。
     # 用 json.loads 探測而非寫死索引，因此 A1111 (idx 1) 與 Forge (idx 2) 皆相容。
@@ -90,7 +90,7 @@ def get_ui_task_geninfo(result: Any) -> Any:
 
 
 def get_ui_task_error_text(result: Any) -> str:
-    """從 UI 回傳元組中取出錯誤/資訊文字（排除 geninfo）/ Get the error / info text from the UI result tuple (excluding geninfo)
+    """從 UI 回傳元組中取出錯誤/資訊文字（排除 geninfo）/ Get the error
 
     A1111 將錯誤資訊放在索引 2（html_info），Forge 則依例外或正常回傳路徑
     分別位於索引 1（exception fallback 的 ""）或索引 3（html_info）。
@@ -101,8 +101,8 @@ def get_ui_task_error_text(result: Any) -> str:
     This collects every string element except geninfo so callers can scan for
     messages such as "CUDA out of memory" without caring about per-version indexes.
 
-    @param result - wrap_gradio_call 的回傳元組 / result tuple from wrap_gradio_call
-    @returns 合併後的錯誤/資訊文字 / the concatenated error / info text
+    @param result - wrap_gradio_call 的回傳元組
+    @returns 合併後的錯誤/資訊文字
     """
     geninfo = get_ui_task_geninfo(result)
     # 收集合併除 geninfo 以外的所有字串，讓呼叫端能以單一字串掃描 OOM 等錯誤訊息

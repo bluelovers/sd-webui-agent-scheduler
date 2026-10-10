@@ -20,7 +20,7 @@ from gradio.blocks import Block, BlockContext
 
 from agent_scheduler.compat_a1111_forge.ui import get_ui_dependencies
 
-# 記錄目前作業系統，用於跨平台行為判斷 / Record the current OS for cross-platform branching.
+# 記錄目前作業系統，用於跨平台行為判斷
 is_windows = platform.system() == "Windows"
 is_macos = platform.system() == "Darwin"
 
@@ -35,7 +35,7 @@ from .log import log
 class Singleton(abc.ABCMeta, type):
     """
     Singleton metaclass for ensuring only one instance of a class.
-    確保類別在全域只會產生單一實例的元類 / Metaclass guaranteeing a single global instance per class.
+    確保類別在全域只會產生單一實例的元類
 
     為什麼需要：排程器中的管理器（如任務佇列）應全域唯一，避免狀態分散。
     Why: schedulers (e.g. task queues) must be globally unique to keep shared state consistent.
@@ -45,7 +45,7 @@ class Singleton(abc.ABCMeta, type):
 
     def __call__(cls, *args, **kwargs):
         """Call method for the singleton metaclass."""
-        # 若該類別尚未建立實例，則建立並快取；之後皆回傳同一實例 / Lazily create and cache the instance, always returning the same one.
+        # 若該類別尚未建立實例，則建立並快取；之後皆回傳同一實例
         if cls not in cls._instances:
             cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
@@ -53,12 +53,12 @@ class Singleton(abc.ABCMeta, type):
 
 def compare_components_with_ids(components: List[Block], ids: List[int]):
     """
-    比對元件清單與其 id 是否一一對應 / Check that components match the given ids one-to-one.
+    比對元件清單與其 id 是否一一對應
 
     為什麼需要：在尋找 UI 相依性時，需確認找到的元件順序與預期 id 完全一致。
     Why: when resolving UI dependencies we must confirm the found components exactly match the expected ids in order.
     """
-    # 數量需相同且每個元件的 id 都相符 / Counts must match and every component id must be equal.
+    # 數量需相同且每個元件的 id 都相符
     return len(components) == len(ids) and all(
         component._id == _id for component, _id in zip(components, ids)
     )
@@ -66,17 +66,17 @@ def compare_components_with_ids(components: List[Block], ids: List[int]):
 
 def get_component_by_elem_id(root: Block, elem_id: str):
     """
-    依 elem_id 在 gradio 元件樹中遞迴尋找元件 / Recursively find a gradio component by its elem_id.
+    依 elem_id 在 gradio 元件樹中遞迴尋找元件
 
     為什麼需要：排程器需要根據 elem_id 定位特定 UI 元件以讀取或綁定其值。
     Why: the scheduler must locate specific UI components by elem_id to read or bind their values.
     """
-    # 根節點即為目標則直接回傳 / Return the root itself if it matches.
+    # 根節點即為目標則直接回傳
     if root.elem_id == elem_id:
         return root
 
     elem = None
-    # 若為容器（BlockContext），則遞迴搜尋其子元件，找到即停止 / If a container, recurse into children and stop at the first match.
+    # 若為容器（BlockContext），則遞迴搜尋其子元件，找到即停止
     if isinstance(root, BlockContext):
         for block in root.children:
             elem = get_component_by_elem_id(block, elem_id)
@@ -88,19 +88,19 @@ def get_component_by_elem_id(root: Block, elem_id: str):
 
 def get_components_by_ids(root: Block, ids: List[int]):
     """
-    依 id 清單在 gradio 元件樹中蒐集對應元件 / Collect gradio components matching the given id list.
+    依 id 清單在 gradio 元件樹中蒐集對應元件
 
     為什麼需要：UI 相依性中記錄的是元件 id，需轉回實際元件物件才能操作。
     Why: UI dependencies are recorded as component ids, which must be resolved back to objects to use them.
     """
     components: List[Block] = []
 
-    # 若根節點的 id 在清單中，則加入並從待找清單移除 / If root matches, add it and remove from the pending ids.
+    # 若根節點的 id 在清單中，則加入並從待找清單移除
     if root._id in ids:
         components.append(root)
         ids = [_id for _id in ids if _id != root._id]
 
-    # 若為容器則遞迴蒐集其餘子元件 / If a container, recurse to collect remaining child components.
+    # 若為容器則遞迴蒐集其餘子元件
     if isinstance(root, BlockContext):
         for block in root.children:
             components.extend(get_components_by_ids(block, ids))
@@ -110,14 +110,14 @@ def get_components_by_ids(root: Block, ids: List[int]):
 
 def detect_control_net(root: gr.Blocks, submit: gr.Button):
     """
-    偵測 submit 按鈕所連動的 ControlNet 單元型別 / Detect the ControlNet unit type wired to the submit button.
+    偵測 submit 按鈕所連動的 ControlNet 單元型別
 
     為什麼需要：ControlNet 單元型別在執行期才存在，需從 UI 依賴關係推導其具體類別。
     Why: the ControlNet unit type only exists at runtime and must be inferred from UI dependency wiring.
     """
     UiControlNetUnit = None
 
-    # 取出所有「點擊 submit 即觸發」的 UI 依賴 / Collect every dependency triggered by clicking the submit button.
+    # 取出所有「點擊 submit 即觸發」的 UI 依賴
     dependencies: List[dict] = [
         x
         for x in get_ui_dependencies(root)
@@ -128,7 +128,7 @@ def detect_control_net(root: gr.Blocks, submit: gr.Button):
         if len(d["outputs"]) == 1:
             outputs = get_components_by_ids(root, d["outputs"])
             output = outputs[0]
-            # 若該輸出是一個值為 ControlNet 單元的 State，則記錄其型別 / If the output is a State holding a ControlNet unit, record its type.
+            # 若該輸出是一個值為 ControlNet 單元的 State，則記錄其型別
             if (
                 isinstance(output, gr.State)
                 and type(output.value).__name__ == "UiControlNetUnit"
@@ -140,16 +140,16 @@ def detect_control_net(root: gr.Blocks, submit: gr.Button):
 
 def get_dict_attribute(dict_inst: dict, name_string: str, default=None):
     """
-    以點號路徑讀取巢狀字典中的值 / Read a value from a nested dict using dot-path notation.
+    以點號路徑讀取巢狀字典中的值
 
     為什麼需要：任務參數常有巢狀結構（如 alwayson_scripts.controlnet.args），以字串路徑存取較方便。
     Why: task params are often nested (e.g. alwayson_scripts.controlnet.args), so a string path is convenient.
     """
-    # 將點號路徑拆解為鍵串 / Split the dot-path into individual keys.
+    # 將點號路徑拆解為鍵串
     nested_keys = name_string.split(".")
     value = dict_inst
 
-    # 逐層取值，任一層缺失即回傳預設值 / Walk each level; return default as soon as any level is missing.
+    # 逐層取值，任一層缺失即回傳預設值
     for key in nested_keys:
         value = value.get(key, None)
 
@@ -173,20 +173,20 @@ def set_dict_attribute(dict_inst: dict, name_string: str, value):
         None
     """
     # Split the attribute names by dot
-    # 將點號路徑拆解為鍵清單 / Split the dot-path into a list of keys.
+    # 將點號路徑拆解為鍵清單
     name_list = name_string.split(".")
 
     # Traverse the dictionary and create a nested dictionary if necessary
-    # 逐層走訪，遇到不存在的鍵就自動建立巢狀字典 / Walk each level, auto-creating nested dicts when a key is missing.
+    # 逐層走訪，遇到不存在的鍵就自動建立巢狀字典
     current_dict = dict_inst
     for name in name_list[:-1]:
-        # 若不存在則先建立空字典，確保路徑暢通 / Create an empty dict if the key is absent so the path exists.
+        # 若不存在則先建立空字典，確保路徑暢通
         if name not in current_dict:
             current_dict[name] = {}
         current_dict = current_dict[name]
 
     # Set the final attribute to its value
-    # 在最後一層設定實際值 / Set the actual value at the final level.
+    # 在最後一層設定實際值
     current_dict[name_list[-1]] = value
 
 
@@ -196,26 +196,26 @@ def request_with_retry(
     retries: int = 0,
 ):
     """
-    執行請求並在連線失敗時重試 / Execute a request and retry on connection failure.
+    執行請求並在連線失敗時重試
 
     為什麼需要：上傳結果到外部服務時網路可能暫時不穩，重試可提高成功率且避免任務因瞬斷而失敗。
     Why: uploading results to external services can hit transient network errors, so retrying improves robustness.
     """
     try:
         res = make_request()
-        # 視為失敗的狀態碼（>400）直接拋錯進入重試/錯誤處理 / Treat status >400 as failure and raise into the error path.
+        # 視為失敗的狀態碼（>400）直接拋錯進入重試/錯誤處理
         if res.status_code > 400:
             raise Exception(res.text)
 
         return True
-    # 連線錯誤時依剩餘次數重試，超過上限則放棄 / On connection error retry up to the limit, then give up.
+    # 連線錯誤時依剩餘次數重試，超過上限則放棄
     except requests.exceptions.ConnectionError:
         log.error("[ArtVenture] Connection error while uploading result")
-        # 已達最大重試次數則結束並回傳失敗 / Stop and report failure once retries are exhausted.
+        # 已達最大重試次數則結束並回傳失敗
         if retries >= max_try - 1:
             return False
 
-        # 等待後遞迴重試，次數加一 / Wait then recurse with an incremented retry count.
+        # 等待後遞迴重試，次數加一
         time.sleep(1)
         log.info(f"[ArtVenture] Retrying {retries + 1}...")
         return request_with_retry(
@@ -223,7 +223,7 @@ def request_with_retry(
             max_try=max_try,
             retries=retries + 1,
         )
-    # 其他例外一律記錄並回傳失敗，不中斷排程 / Any other exception is logged and reported as failure without crashing the scheduler.
+    # 其他例外一律記錄並回傳失敗，不中斷排程
     except Exception as e:
         log.error("[ArtVenture] Error while uploading result")
         log.error(e)
@@ -233,18 +233,18 @@ def request_with_retry(
 
 def _exit(status: int) -> NoReturn:
     """
-    強制結束程序並確保緩衝區已清空 / Forcefully exit the process after flushing buffers.
+    強制結束程序並確保緩衝區已清空
 
     為什麼需要：排程器在嚴重錯誤時需立即終止，但仍應執行 atexit 清理並清空輸出。
     Why: on fatal errors the scheduler must terminate immediately while still running atexit cleanup and flushing output.
     """
-    # 嘗試執行已註冊的結束函式；任何異常都忽略以免阻擋結束 / Run registered atexit funcs, ignoring any error so exit is never blocked.
+    # 嘗試執行已註冊的結束函式；任何異常都忽略以免阻擋結束
     try:
         atexit._run_exitfuncs()
     except:
         pass
-    # 確保標準輸出/錯誤緩衝區都已寫出 / Flush stdout and stderr so nothing is lost.
+    # 確保標準輸出/錯誤緩衝區都已寫出
     sys.stdout.flush()
     sys.stderr.flush()
-    # 立即終止程序 / Terminate the process immediately.
+    # 立即終止程序
     os._exit(status)

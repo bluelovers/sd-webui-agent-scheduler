@@ -1,5 +1,5 @@
 """
-tests — sd-webui-agent-scheduler 的固定測試套件 / Permanent test package.
+tests — sd-webui-agent-scheduler 的固定測試套件
 
 讓 `python -m unittest discover -s tests -t .` 也能執行（有 __init__.py 才可被匯入）。
 This file lets `python -m unittest discover -s tests -t .` work as well (a package

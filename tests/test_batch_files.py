@@ -1,4 +1,4 @@
-"""批次檔與 PowerShell 檔的格式防護 / Format guards for .bat and .ps1 files.
+"""批次檔與 PowerShell 檔的格式防護
 
 Windows 上 cmd 讀取 .bat 的方式有三個已知陷阱，這裡用測試守住（只用標準庫）：
 
@@ -28,10 +28,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 BAT_FILES = sorted(REPO_ROOT.glob("*.bat")) + sorted((REPO_ROOT / "tests").glob("*.bat"))
 PS_FILES = sorted(REPO_ROOT.glob("*.ps1"))
 
-# 用到批次標籤的程式碼 / code (not comments) that jumps to a batch label
+# 用到批次標籤的程式碼
 LABEL_USE = re.compile(r"(call|goto)\s+:", re.IGNORECASE)
 
-# rem 行上未跳脫的重導向字元 / an unescaped redirect character on a rem line
+# rem 行上未跳脫的重導向字元
 UNESCAPED_REDIRECT = re.compile(r"(?<!\^)[>|]")
 
 

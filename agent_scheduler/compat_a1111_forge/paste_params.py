@@ -1,7 +1,7 @@
-"""paste 參數按鈕相關符號的版本相容匯出 / Version-compatible re-exports for paste-parameter symbols"""
+"""paste 參數按鈕相關符號的版本相容匯出"""
 
 """
-統一匯出 paste 參數相關符號 / Re-export paste-parameter symbols uniformly
+統一匯出 paste 參數相關符號
 
 在 Forge Neo 中這些符號位於 modules.infotext_utils，
 在 A1111 (v1.7 以前) 則位於 modules.generation_parameters_copypaste。
