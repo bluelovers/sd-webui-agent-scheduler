@@ -46,6 +46,7 @@ from .task_helpers import (
     map_named_args_to_ui_task_args_list,
 )
 from .shared_opts_backup import SharedOptsBackup
+from .task_output import cleanup_task_output_dir, compose_output_root, resolve_samples_base
 from pathlib import Path
 
 class OutOfMemoryError(Exception):
@@ -362,6 +363,10 @@ class TaskRunner:
                     # does not mix with the user's normal outputs; shared_opts are restored
                     # afterwards by restore_shared_opts().
                     #
+                    # 回傳本次任務資料夾的絕對路徑，供執行前備份設定、執行後清理空目錄使用。
+                    # Returns the absolute path of this task's folder, used to back up settings
+                    # before execution and to clean empty directories afterwards.
+                    #
                     # 路徑一律先以「相對 CWD、含 '..'」的方式組裝，直到寫入 shared.opts
                     # （set_shared_opts_core 內）才真正展開，以避免 CWD 位於 junction 捷徑時
                     # 超過 Windows MAX_PATH=260 而存圖失敗（see set_shared_opts_core 設計說明）。
@@ -375,15 +380,25 @@ class TaskRunner:
                         key_samples = "outdir_txt2img_samples"
                         key_grids = "outdir_txt2img_grids"
 
-                    # 取任務開始前的原始 samples 目錄（相對路徑，可能含 '..'），作為新目錄的基準
+                    # 取任務開始前的原始 samples 目錄（相對路徑，可能含 '..'），作為新目錄的基準。
+                    # resolve_samples_base() 會先把「上次任務在 restore_shared_opts() 之前中斷
+                    # （關機／當機／誤關程式／崩潰）」所殘留的巢狀路徑修復回原始目錄。
                     # Take the pre-task original samples dir (relative, may contain '..') as the
-                    # base for composing the new directory tree.
-                    outdir_path_samples_old = Path(shared_opts_backup.get_backup_value(key_samples))
+                    # base for composing the new directory tree. resolve_samples_base() first
+                    # repairs the nested path left behind when the previous task died before
+                    # restore_shared_opts() (shutdown / freeze / killed app / crash).
+                    outdir_path_samples_old = resolve_samples_base(
+                        shared_opts_backup.get_backup_value(key_samples)
+                    )
 
-                    # 上層目錄 = samples 再往上兩層（joinpath('..') 一次）後加 'agent-scheduler'
-                    # Parent root = samples dir, go up one level then append 'agent-scheduler'.
-                    outdir_path_root_top = outdir_path_samples_old.joinpath('..')
-                    outdir_path_root = outdir_path_root_top.joinpath('agent-scheduler')
+                    # 由基準推導根目錄；compose_output_root() 內含根目錄守門：
+                    # 只要基準仍落在排程輸出樹內，就改用「樹前綴 + agent-scheduler」，
+                    # 杜絕從上次任務目錄往下再疊一層。
+                    # Derive the root from the base; compose_output_root() embeds the root
+                    # guard: whenever the base still sits inside the scheduler output tree it
+                    # uses "prefix before the tree + agent-scheduler" instead, so the tree can
+                    # never be nested another level under the previous task folder.
+                    outdir_path_root = compose_output_root(outdir_path_samples_old)
 
                     outdir_path_root_task = outdir_path_root
 
@@ -417,10 +432,15 @@ class TaskRunner:
                         outdir = outdir_path_root_task.joinpath(name)
                         os.makedirs(shared_opts_backup.set_shared_opts_core(key, outdir), exist_ok=True)
 
-                    os.makedirs(
-                        shared_opts_backup.set_shared_opts_core(key_samples, outdir_path_samples_new),
-                        exist_ok=True,
+                    # 取 set_shared_opts_core 回傳的絕對路徑建立 samples 目錄，
+                    # 再由它推出本次任務資料夾與當日資料夾的絕對路徑（與磁碟上實際建立者一致）。
+                    # Build the samples dir from the absolute path returned by
+                    # set_shared_opts_core, then derive this task's folder and the day
+                    # folder from it (identical to what actually exists on disk).
+                    samples_dir_abs = Path(
+                        shared_opts_backup.set_shared_opts_core(key_samples, outdir_path_samples_new)
                     )
+                    os.makedirs(samples_dir_abs, exist_ok=True)
 
                     _output_to_root_task(key_grids)
                     _output_to_root_task("outdir_init_images")
@@ -463,7 +483,47 @@ class TaskRunner:
                         shared_opts_backup.set_shared_opts_core("ad_save_previews", True)
                         shared_opts_backup.set_shared_opts_core("ad_save_images_before", True)
 
-                change_output_dir()
+                    # 本次任務資料夾 = samples 目錄的上一層
+                    # This task's folder = the parent of the samples directory.
+                    task_dir_abs = samples_dir_abs.parent
+
+                    # 當日資料夾 = 任務資料夾的上一層（日期層）；
+                    # save_to_dirs 開啟時路徑沒有日期層，退回任務根目錄。
+                    # Day folder = the parent (date layer) of the task folder; when
+                    # save_to_dirs is on the tree has no date layer, so fall back to the
+                    # task root instead.
+                    day_dir_abs = task_dir_abs if save_to_dirs else task_dir_abs.parent
+
+                    # 根目錄（agent-scheduler）的絕對路徑 = 當日資料夾的上一層
+                    # Absolute path of the root (agent-scheduler) = parent of the day folder.
+                    root_abs = day_dir_abs if save_to_dirs else day_dir_abs.parent
+
+                    # 執行時把「改動前的原始設定值」備份到當日資料夾；
+                    # 同日檔案已存在則不覆寫（保留當日第一次任務的原始狀態）。
+                    # computed 額外記錄當時計算用的根目錄，供事後追查輸出去向。
+                    # Back up the pre-change original option values into the day folder while
+                    # the task runs; an existing file for the same day is never overwritten
+                    # (the first task of the day keeps the true original state).
+                    # `computed` additionally records the roots used at that time so an
+                    # output location can be traced back later.
+                    shared_opts_backup.save_backup_file(
+                        day_dir_abs,
+                        task_id,
+                        computed={
+                            # 組路徑所用的 samples 基準（相對路徑，可能含 '..'）
+                            # The samples base used to compose the paths (relative, may
+                            # contain '..').
+                            "samples_base": outdir_path_samples_old.as_posix(),
+                            # 當時計算用的根目錄 / The root computed at that time.
+                            "root": root_abs.as_posix(),
+                            "day_dir": day_dir_abs.as_posix(),
+                            "task_dir": task_dir_abs.as_posix(),
+                        },
+                    )
+
+                    return task_dir_abs
+
+                task_output_dir = change_output_dir()
 
                 res = self.__execute_task(task_id, is_img2img, task_args)
 
@@ -519,6 +579,25 @@ class TaskRunner:
                             **task_meta,
                         )
                         # gr.Info(f"[AgentScheduler] Task {task_id} finished")
+
+                # 清理本次任務資料夾底下的空目錄；若資料夾本身已完全變空，
+                # 則一併刪除並在原位置寫入同名 .txt 報告，記錄為空的原因
+                # （硬碟滿、無法寫入、佇列被傾空、取消任務、任務出錯或其他／未知原因）。
+                # 清理全程皆有例外捕捉，失敗只記錄日誌，不影響後續任務。
+                # Clean empty directories under this task's folder; when the folder itself is
+                # completely empty, remove it too and leave a same-named .txt report at that
+                # location recording why it was empty (disk full, not writable, queue purged,
+                # cancelled, failed, or other/unknown). Every step is exception-guarded so a
+                # failure is only logged and never affects the following tasks.
+                cleanup_task_output_dir(
+                    task_output_dir,
+                    task_id=task_id,
+                    status=task.status,
+                    failed=not res or isinstance(res, Exception),
+                    error=res if isinstance(res, Exception) else None,
+                    interrupted=self.interrupted == task_id,
+                    queue_purged=task.status == TaskStatus.PENDING,
+                )
 
                 self.__saved_images_path = []
             else:

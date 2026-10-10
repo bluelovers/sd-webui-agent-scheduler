@@ -1,10 +1,8 @@
 """
-helpers.py — Agent Scheduler 的通用輔助工具 / General-purpose helper utilities for the Agent Scheduler.
+helpers.py — Agent Scheduler 的通用輔助工具
 
-本模組提供日誌設定、單例元類、gradio 元件搜尋、巢狀字典存取、帶重試的請求，
+本模組提供單例元類、gradio 元件搜尋、巢狀字典存取、帶重試的請求，
 以及程序安全結束等共用功能，供擴充其他模組重複使用。
-This module provides logging setup, a singleton metaclass, gradio component lookup, nested dict
-access, retrying requests, and safe process exit used across the extension.
 """
 
 import os
@@ -12,7 +10,6 @@ import sys
 import abc
 import atexit
 import time
-import logging
 import platform
 import requests
 import traceback
@@ -27,52 +24,12 @@ from agent_scheduler.compat_a1111_forge.ui import get_ui_dependencies
 is_windows = platform.system() == "Windows"
 is_macos = platform.system() == "Darwin"
 
-# 若根 logger 已有處理器（通常由 sd-webui 啟動流程設定），直接沿用其 "sd" logger / Reuse the existing "sd" logger if handlers are already configured.
-if logging.getLogger().hasHandlers():
-    log = logging.getLogger("sd")
-else:
-    import copy
-    class ColoredFormatter(logging.Formatter):
-        """
-        為不同等級的日誌加上終端機顏色 / Add terminal colors to log records by level.
-
-        為什麼需要：在 sd-webui 尚未配置日誌處理器時，提供具可讀性的彩色輸出。
-        Why: when sd-webui has not configured logging, provide readable color-coded console output.
-        """
-        COLORS = {
-            "DEBUG": "\033[0;36m",  # CYAN
-            "INFO": "\033[0;32m",  # GREEN
-            "WARNING": "\033[0;33m",  # YELLOW
-            "ERROR": "\033[0;31m",  # RED
-            "CRITICAL": "\033[0;37;41m",  # WHITE ON RED
-            "RESET": "\033[0m",  # RESET COLOR
-        }
-
-        def format(self, record):
-            colored_record = copy.copy(record)
-            levelname = colored_record.levelname
-            seq = self.COLORS.get(levelname, self.COLORS["RESET"])
-            colored_record.levelname = f"{seq}{levelname}{self.COLORS['RESET']}"
-            return super().format(colored_record)
-
-    # Create a new logger
-    # 建立專屬的 AgentScheduler logger，不向上層傳播以免重複輸出 / Create a dedicated logger that does not propagate to avoid duplicate output.
-    logger = logging.getLogger("AgentScheduler")
-    logger.propagate = False
-
-    # Add handler if we don't have one.
-    # 若尚未有處理器，則加入帶彩色格式的 stdout 處理器 / Attach a color-formatted stdout handler if none exists yet.
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(ColoredFormatter("%(levelname)s - %(message)s"))
-        logger.addHandler(handler)
-
-    # Configure logger
-    # 預設日誌等級設為 INFO / Default logging level is INFO.
-    loglevel = logging.INFO
-    logger.setLevel(loglevel)
-
-    log = logger
+# 日誌設定已抽出至獨立模組（純標準庫、不相依 gradio），讓 task_output /
+# shared_opts_backup 與其單元測試不必為了取得 logger 而載入 gradio。
+# The logging setup lives in its own module (standard library only, no gradio), so
+# task_output / shared_opts_backup and their unit tests do not need gradio merely to
+# obtain a logger. This is the very same logger instance as before.
+from .log import log
 
 
 class Singleton(abc.ABCMeta, type):
