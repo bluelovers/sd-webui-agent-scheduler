@@ -6,6 +6,15 @@ Forge exposes shared.opts.prompt_box_style (Default / Compact / Scrollable /
 Accordion) while A1111 uses the legacy compact_prompt_box boolean; the two
 interfaces differ.
 
+選項的套用方式也不同：A1111 由 modules/ui.py 建立 Toprow 時傳入
+is_compact=shared.opts.compact_prompt_box；Forge 則由 ui_toprow.Toprow 自己
+讀取 shared.opts.prompt_box_style（__init__() / create_prompts() /
+_container_class()）。
+The option is wired up differently as well: A1111 passes
+is_compact=shared.opts.compact_prompt_box when modules/ui.py builds a
+Toprow, while Forge's ui_toprow.Toprow reads shared.opts.prompt_box_style
+itself (__init__() / create_prompts() / _container_class()).
+
 所有對 sd-webui API 的存取都以「該 API 可能不存在於此版本」為前提，
 因此一律用 getattr / try-import 並回傳安全的預設值，確保向後相容。
 Every access to a sd-webui API assumes that API may be missing in this

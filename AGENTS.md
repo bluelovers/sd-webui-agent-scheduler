@@ -2,6 +2,13 @@
 
 本專案是 sd-webui 的擴充（Agent Scheduler 排程器），需要在**兩套不同的 sd-webui 環境**下皆可運作。本文件說明兩個版本的差異、開發路徑，以及本專案採用的相容性策略模式。
 
+## 操作限制
+
+- **禁止啟動或關閉任何伺服器**：包含 sd-webui 與前端 dev server；需要啟動 webui 才能完成的驗證，交由使用者執行。
+- **禁止安裝任何依賴**：不執行 `pip` / `uv` / `npm` 等安裝指令；語法驗證與單元測試僅需 Python 標準庫。
+- **Python 呼叫一律走 `pyrun.bat`**（擴充根目錄的標準啟動器）：interpreter 的挑選、`.env`
+  與快取行為定義在 `pyrun.ps1`（`pyrun.bat --which` 顯示將使用的 interpreter）。
+
 ## Environment Paths
 
 | Version | Path | gradio | pydantic | Key module |
@@ -49,19 +56,6 @@
 
 **處理方式:** 透過 `get_ui_dependencies()` 將新舊結構正規化為舊版 dict 格式，透過 `get_ui_fns()` 統一回傳 `BlockFunction` 列表。
 
-### 4. Prompt 版面選項差異
-
-| 功能 | A1111 | Forge Neo |
-|---|---|---|
-| 版面選項 | `opts.compact_prompt_box`（bool） | `opts.prompt_box_style`（Default / Compact / Scrollable / Accordion） |
-| 選項如何套用 | `ui.py` 傳 `is_compact=` 給 `Toprow` | `ui_toprow.Toprow._container_class()` 與 `create_prompts()` 讀取選項 |
-| Compact 時的 DOM | 無 `{tab}_toprow` / `{tab}_actions_column`；Generate 由 `create_inline_toprow_image()` 渲染進 `{tab}_results` | 同左，且提示詞容器帶 `prompt-container-compact`、Generate box 帶 `generate-box-compact` |
-
-**處理方式:**
-- 一律透過 `prompt_box_style.py` 的 `is_compact_prompt_box()` 取代直接讀選項：先確認「選項存在」再確認「`ui_toprow` 真的有實作」（`_container_class()`，或 `create_prompts()` / `__init__()` 原始碼內讀取 `prompt_box_style`），兩者缺一即視為不支援。
-- 另提供純結構的 `is_compact_layout(component)`，比對實際長出來的 `generate-box-compact` / `prompt-container-compact` 標記 class 作為佐證；`scripts/task_scheduler.py` 以「選項偵測 or 結構偵測」得到的 Compact 結果，交給 `agent_scheduler/enqueue_placement.py` 的 `resolve_enqueue_mount_point()` 解析 Enqueue 掛載點（classic → `actions_column` / `toprow`；Compact → `results` / `prompt_container`），讓按鈕依設定跟著 Generate 移動。
-- 所有 API 存取都假設可能不存在（`getattr` / 函式內 `try-import`），缺 API 時退回 A1111 的 `compact_prompt_box` 或舊版行為。
-
 ## 相容性策略模式
 
 所有版本差異的相容處理集中在 `agent_scheduler/compat_a1111_forge/` 套件內，依**差異主題**拆分為子模組：
@@ -96,23 +90,13 @@ agent_scheduler/compat_a1111_forge/
 2. 若只是「位置不同」：仿照 `paste_params.py` 的 try/except 雙來源匯出。
 3. 若涉及「寫法不同」：仿照 `pydantic.py` / `ui.py` 提供版本旗標或正規化函式。
 4. 更新呼叫端 import，改為從 compat 子模組匯入。
-5. 用兩套環境的 Python 執行 `py_compile` 驗證語法。
 
 ## 驗證
 
-- 語法驗證：以各環境 Python 執行 `python -m py_compile <檔案>`。
+- 語法驗證：`pyrun.bat -m py_compile <檔案>`（如需指定另一套環境，改用該環境直譯器）。
   - Forge Neo 範例：`"D:/Program Files (AI)/sd-webui-forge-classic/venv/Scripts/python.exe" -m py_compile <檔案>`
-- 單元測試 / Unit tests：在擴充目錄執行 `python tests/run_tests.py`（等價寫法：`python -m unittest discover -s tests -t .`，或以 uv 執行 `tests\run_tests_uv.bat`）。
-  僅使用標準庫 `unittest`，**不需安裝 pytest 等任何東西**；被測模組刻意不引用 `modules.*`，
-  連 logger 都取自純標準庫的 `agent_scheduler/log.py`（而非會 import gradio 的 `helpers.py`），
-  因此**只需 Python 標準庫**：不啟動 webui、也不需要 `gradio`，任何解釋器（含 uv 自帶）都跑得起來。
-  (uv's own included).
-  - 涵蓋：`agent_scheduler/task_output.py`、`agent_scheduler/shared_opts_backup.py`、
-    `agent_scheduler/enqueue_placement.py`（純標準庫）、
-    `agent_scheduler/compat_a1111_forge/prompt_box_style.py`（對 `modules.*` 的引用全在函式內
-    且包 `try/except`，測試以 `sys.modules` 替身注入，因此仍不需啟動 webui）
-  - 未涵蓋：`task_runner.py`、`scripts/task_scheduler.py`（需 webui runtime，僅做 `py_compile`）
-  - 環境變數 `AGENT_SCHEDULER_TEST_DIR` 可指定測試產物目錄（預設系統暫存目錄）。
-  - 詳見 `tests/README.md`。
+- 單元測試 / Unit tests：在擴充目錄執行 `pyrun.bat tests/run_tests.py`
+  （僅需 Python 標準庫、不啟動 webui；涵蓋範圍與其他執行方式見 `tests/README.md`）。
 - 注意：`modules.*` 相關 import 需要完整的 sd-webui 啟動流程才能載入；僅做語法檢查時請勿直接執行含模組 import 的檔案，改以 `py_compile` 驗證。
-- 完整驗證需在目標環境實際啟動 sd-webui（`webui-user.bat` / `webui.bat`），確認無 script load 錯誤。
+- 完整驗證需在目標環境實際啟動 sd-webui（`webui-user.bat` / `webui.bat`），確認無 script load 錯誤；
+  依「操作限制」交由使用者執行。

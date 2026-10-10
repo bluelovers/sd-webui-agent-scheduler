@@ -15,7 +15,7 @@ containers exist) are concentrated in the table below:
 | 版面 / Layout | Near Generate | Between Prompt and Generate |
 |---|---|---|
 | classic（有 `{tab}_toprow` / `{tab}_actions_column`） | `{tab}_actions_column`（Generate 下方） | `{tab}_toprow`（提示詞與 actions 之間） |
-| Compact（無 toprow，Generate 渲染進 `{tab}_results`） | `{tab}_results`（Generate 上方，跟著 Generate 移動） | `{tab}_prompt_container`（提示詞下方） |
+| Compact（無 toprow / actions_column，Generate 由 `Toprow.create_inline_toprow_image()` 渲染進 `{tab}_results`） | `{tab}_results`（Generate 上方，跟著 Generate 移動） | `{tab}_prompt_container`（提示詞下方） |
 """
 
 from typing import Optional
