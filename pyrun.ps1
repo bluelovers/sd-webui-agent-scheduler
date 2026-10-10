@@ -41,6 +41,8 @@ if ([string]::IsNullOrEmpty($scriptDir)) { $scriptDir = (Get-Location).Path }
 $envFile = Join-Path $scriptDir '.env'
 $cacheFile = Join-Path $scriptDir '.cache\webui-python.txt'
 
+Set-Item -LiteralPath "Env:PYTHONIOENCODING" -Value "utf-8"
+
 function Write-Diag {
     # Diagnostics always go to stderr so stdout stays machine-readable
     # (pyrun.bat --which prints only the interpreter path on stdout).
