@@ -28,7 +28,13 @@ from agent_scheduler.compat_a1111_forge.paste_params import (
     register_paste_params_button,
     registered_param_bindings,
 )
+from agent_scheduler.compat_a1111_forge.prompt_box_style import (
+    is_compact_layout,
+    is_compact_prompt_box,
+)
 from agent_scheduler.compat_a1111_forge.ui import get_ui_dependencies, get_ui_fns
+
+from agent_scheduler.enqueue_placement import resolve_enqueue_mount_point
 
 from agent_scheduler.task_runner import TaskRunner, get_instance
 from agent_scheduler.helpers import log, compare_components_with_ids, get_components_by_ids, is_macos
@@ -98,6 +104,9 @@ class Script(scripts.Script):
         self.enqueue_row = None
         self.checkpoint_dropdown = None
         self.submit_button = None
+        # 是否已確認為 Compact 版面（確認後沿用，見 after_component）/
+        # Whether the Compact layout has been confirmed (reused afterwards, see after_component)
+        self.compact_layout = False
 
     def title(self):
         # 擴充在 UI 上顯示的名稱 / Display name of the extension in the UI
@@ -125,10 +134,7 @@ class Script(scripts.Script):
         enqueue_wrapper = f"{id_part}_enqueue_wrapper"
         generate_id = f"{id_part}_generate"
 
-        # 讀取影響按鈕擺放的使用者設定 / Read the settings that affect button placement
-        compact_prompt_box = getattr(shared.opts, "compact_prompt_box", False)
-        queue_button_placement = getattr(shared.opts, "queue_button_placement", placement_under_generate)
-
+        # 目前元件的 elem_id / The elem_id of the current component
         component_elem_id = _kwargs.get('elem_id')
 
         # 先捕捉 generate 按鈕以備後續綁定 / Capture the generate button for later event binding
@@ -141,11 +147,26 @@ class Script(scripts.Script):
         elif component_elem_id is None or component_elem_id == enqueue_wrapper:
             return
 
-        generate_box = f"{id_part}_generate_box"
-        actions_column_id = f"{id_part}_actions_column"
-        results_id = f"{id_part}_results"
-        neg_id = f"{id_part}_neg_prompt"
-        toprow_id = f"{id_part}_toprow"
+        # Compact 版面偵測：先比對 webui 對 prompt_box_style 的實作與選項值，
+        # 再以實際長出來的元件結構（generate-box-compact / prompt-container-compact）
+        # 佐證；兩者皆以「API 可能不存在」為前提設計，缺 API 時自然退回舊版行為。
+        # Compact layout detection: compare the webui's prompt_box_style
+        # implementation and option value first, then corroborate with the
+        # component structure that was actually built; both assume the API may
+        # be missing, so an API-less version simply falls back to legacy behavior.
+        compact_prompt_box = is_compact_prompt_box() or is_compact_layout(component)
+        # 標記 class 只出現在前段元件（generate box / 提示詞容器），後段的 results
+        # 容器本身沒有標記，因此一旦確認是 Compact 就沿用，避免掛載時機錯過
+        # The marker classes only appear on early components (generate box /
+        # prompt container); the later results container carries none, so a
+        # confirmed Compact result is reused to avoid missing the mount moment
+        if compact_prompt_box:
+            self.compact_layout = True
+        else:
+            compact_prompt_box = self.compact_layout
+
+        # 讀取影響按鈕擺放的使用者設定 / Read the settings that affect button placement
+        queue_button_placement = getattr(shared.opts, "queue_button_placement", placement_under_generate)
 
         # 是否選擇放在提示詞與生成按鈕之間 / Whether the button should sit between prompt and generate
         bool_placement_between_prompt_and_generate = queue_button_placement == placement_between_prompt_and_generate
@@ -157,23 +178,30 @@ class Script(scripts.Script):
                 if parent.elem_id is None or elem_id is None or parent.elem_id == elem_id:
                     self.add_enqueue_button()
                     if component.parent != parent:
-                        component.parent.children.pop()
+                        # 目前的 render context 不是目標容器時才搬移；
+                        # parent 可能尚未掛上父層（部分版本的元件建立順序不同），須防呆
+                        # Reparent only when the current render context is not the
+                        # target container; the parent may not be attached yet on
+                        # some versions, so guard against that
+                        if component.parent is not None:
+                            component.parent.children.pop()
                         parent.add(self.enqueue_row)
                     break
                 parent = parent.parent
 
-        # 依設定與介面佈局，選擇合適的掛載點插入 Enqueue 列 / Choose the mount point based on settings and layout
-        if component_elem_id == generate_id:
-            if not compact_prompt_box:
-                if not bool_placement_between_prompt_and_generate:
-                    add_enqueue_row(actions_column_id)
-        elif component_elem_id == neg_id:
-            if not compact_prompt_box:
-                if bool_placement_between_prompt_and_generate:
-                    add_enqueue_row(toprow_id)
-        elif component_elem_id == results_id:
-            if compact_prompt_box and not bool_placement_between_prompt_and_generate:
-                add_enqueue_row(results_id)
+        # 依版面（classic / Compact）與設定解析掛載點，非掛載時機則不動作 /
+        # Resolve the mount point from the layout (classic / Compact) and the
+        # setting; do nothing when this component is not a mounting moment
+        mount_point = resolve_enqueue_mount_point(
+            id_part=id_part,
+            component_elem_id=component_elem_id,
+            compact=compact_prompt_box,
+            between=bool_placement_between_prompt_and_generate,
+        )
+        if mount_point is not None:
+            # 掛載到解析出的容器；classic 與 Compact 的落點不同，細節見 enqueue_placement /
+            # Mount into the resolved container; classic and Compact differ there, see enqueue_placement
+            add_enqueue_row(mount_point)
 
     def on_app_started(self, block):
         # UI 元件就緒後才綁定 Enqueue 按鈕事件 / Bind the Enqueue button only after UI components exist

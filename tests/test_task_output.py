@@ -1,7 +1,7 @@
 """
 test_task_output.py — task_output 模組的固定測試 / Permanent tests for task_output.
 
-涵蓋 / Covers:
+涵蓋:
 1. 巢狀殘留路徑的判斷與修復（上次任務在還原設定前中斷）。
    Detection and repair of nested leftover paths (previous task interrupted
    before settings were restored).

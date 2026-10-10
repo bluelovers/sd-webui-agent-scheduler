@@ -1,7 +1,7 @@
 """
 test_shared_opts_backup.py — SharedOptsBackup 的固定測試 / Permanent tests for SharedOptsBackup.
 
-涵蓋 / Covers:
+涵蓋:
 1. save_backup_file()：寫入指定 options 快照、含 computed 根目錄資訊、
    檔案已存在時一律不覆寫、寫入失敗回傳 None 且不拋例外。
    save_backup_file(): writes the given option snapshot with computed root info,

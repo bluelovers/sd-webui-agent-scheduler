@@ -7,9 +7,9 @@
 | Version | Path | gradio | pydantic | Key module |
 |---|---|---|---|---|
 | **A1111** | `D:\Users\WebstormProjects\ai\stable-diffusion-webui-a1111` | 3.41.2 | v1 | `modules\infotext_utils.py` |
-| **Forge Neo** | `D:\Program Files (AI)\sd-webui-forge-classic` | 4.40.0 | v2.10.6 | `modules\infotext_utils.py` |
+| **Forge Neo** (新) | `D:\Program Files (AI)\sd-webui-forge-classic` | 4.40.0 | v2.10.6 | `modules\infotext_utils.py` |
 
-注意 / Note:
+注意:
 - 兩個版本皆可執行 `modules\infotext_utils.py` 內的符號（`parse_generation_parameters`、`ParamBinding`、`register_paste_params_button`、`connect_paste_params_buttons`、`create_override_settings_dict` 等）。
 - A1111 的 venv 未放在專案內，執行驗證時請以各環境實際的 Python 直譯器與已安裝套件為準。
 
@@ -17,7 +17,7 @@
 
 ### 1. Module Location
 
-| Symbol | A1111 (新) / Forge Neo | A1111 (舊版相容) |
+| Symbol | Forge Neo (新) | A1111 (舊版相容) |
 |---|---|---|
 | `parse_generation_parameters` | `modules.infotext_utils` | `modules.generation_parameters_copypaste` |
 | `ParamBinding` 等 paste 按鈕符號 | `modules.infotext_utils` | `modules.generation_parameters_copypaste` |
@@ -49,6 +49,19 @@
 
 **處理方式:** 透過 `get_ui_dependencies()` 將新舊結構正規化為舊版 dict 格式，透過 `get_ui_fns()` 統一回傳 `BlockFunction` 列表。
 
+### 4. Prompt 版面選項差異
+
+| 功能 | A1111 | Forge Neo |
+|---|---|---|
+| 版面選項 | `opts.compact_prompt_box`（bool） | `opts.prompt_box_style`（Default / Compact / Scrollable / Accordion） |
+| 選項如何套用 | `ui.py` 傳 `is_compact=` 給 `Toprow` | `ui_toprow.Toprow._container_class()` 與 `create_prompts()` 讀取選項 |
+| Compact 時的 DOM | 無 `{tab}_toprow` / `{tab}_actions_column`；Generate 由 `create_inline_toprow_image()` 渲染進 `{tab}_results` | 同左，且提示詞容器帶 `prompt-container-compact`、Generate box 帶 `generate-box-compact` |
+
+**處理方式:**
+- 一律透過 `prompt_box_style.py` 的 `is_compact_prompt_box()` 取代直接讀選項：先確認「選項存在」再確認「`ui_toprow` 真的有實作」（`_container_class()`，或 `create_prompts()` / `__init__()` 原始碼內讀取 `prompt_box_style`），兩者缺一即視為不支援。
+- 另提供純結構的 `is_compact_layout(component)`，比對實際長出來的 `generate-box-compact` / `prompt-container-compact` 標記 class 作為佐證；`scripts/task_scheduler.py` 以「選項偵測 or 結構偵測」得到的 Compact 結果，交給 `agent_scheduler/enqueue_placement.py` 的 `resolve_enqueue_mount_point()` 解析 Enqueue 掛載點（classic → `actions_column` / `toprow`；Compact → `results` / `prompt_container`），讓按鈕依設定跟著 Generate 移動。
+- 所有 API 存取都假設可能不存在（`getattr` / 函式內 `try-import`），缺 API 時退回 A1111 的 `compact_prompt_box` 或舊版行為。
+
 ## 相容性策略模式
 
 所有版本差異的相容處理集中在 `agent_scheduler/compat_a1111_forge/` 套件內，依**差異主題**拆分為子模組：
@@ -59,6 +72,7 @@ agent_scheduler/compat_a1111_forge/
 ├── pydantic.py        # PYDANTIC_V2 旗標、api_task_schema_extra
 ├── infotext.py        # parse_generation_parameters
 ├── paste_params.py    # ParamBinding 等 paste 按鈕符號、create_override_settings_dict
+├── prompt_box_style.py # supports_prompt_box_style / is_compact_prompt_box / is_compact_layout（prompt 版面偵測）
 └── ui.py              # get_ui_dependencies、get_ui_fns（gradio 3.x / 4.x 相容）
 ```
 
@@ -93,8 +107,11 @@ agent_scheduler/compat_a1111_forge/
   連 logger 都取自純標準庫的 `agent_scheduler/log.py`（而非會 import gradio 的 `helpers.py`），
   因此**只需 Python 標準庫**：不啟動 webui、也不需要 `gradio`，任何解釋器（含 uv 自帶）都跑得起來。
   (uv's own included).
-  - 涵蓋：`agent_scheduler/task_output.py`、`agent_scheduler/shared_opts_backup.py`
-  - 未涵蓋：`task_runner.py`（需 webui runtime，僅做 `py_compile`）
+  - 涵蓋：`agent_scheduler/task_output.py`、`agent_scheduler/shared_opts_backup.py`、
+    `agent_scheduler/enqueue_placement.py`（純標準庫）、
+    `agent_scheduler/compat_a1111_forge/prompt_box_style.py`（對 `modules.*` 的引用全在函式內
+    且包 `try/except`，測試以 `sys.modules` 替身注入，因此仍不需啟動 webui）
+  - 未涵蓋：`task_runner.py`、`scripts/task_scheduler.py`（需 webui runtime，僅做 `py_compile`）
   - 環境變數 `AGENT_SCHEDULER_TEST_DIR` 可指定測試產物目錄（預設系統暫存目錄）。
   - 詳見 `tests/README.md`。
 - 注意：`modules.*` 相關 import 需要完整的 sd-webui 啟動流程才能載入；僅做語法檢查時請勿直接執行含模組 import 的檔案，改以 `py_compile` 驗證。

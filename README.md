@@ -119,7 +119,7 @@ Go to `Settings > Agent Scheduler` to access extension settings.
 
 **Disable Queue Auto-Processing**: Check this option to disable queue auto-processing on start-up. You can also temporarily pause or resume the queue from the Extension tab.
 
-**Queue Button Placement**: Change the placement of the queue button on the UI.
+**Queue Button Placement**: Change the placement of the queue button on the UI. When the webui prompt layout (`Prompt Layout` / `prompt_box_style`) is set to **Compact**, the queue button is placed inside the results container so it moves together with the Generate button.
 
 **Hide the Checkpoint Dropdown**: The Extension provides a custom checkpoint dropdown.
 
