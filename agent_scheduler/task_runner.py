@@ -444,6 +444,7 @@ class TaskRunner:
 
                     _output_to_root_task(key_grids)
                     _output_to_root_task("outdir_init_images")
+                    # https://github.com/Haoming02/ADetailer-Neo/blob/af228eba7a3f3691a25bcd1fc94aa95e600dd3e6/scripts/adetailer.py#L493
                     _output_to_root_task("ad_save_images_dir")
 
                     # 網格（grid）一律輸出：僅多張時產生，並避免空白格
@@ -752,7 +753,7 @@ class TaskRunner:
             self.__saved_images_path.insert(0, data.filename)
         else:
             self.__saved_images_path.append(data.filename)
-    
+
     def __on_completed(self):
         action = getattr(shared.opts, "queue_completion_action", "Do nothing")
 
@@ -802,7 +803,7 @@ class TaskRunner:
                 gr.HTML("""
     <script type="text/javascript">
     console.info(`Restart webui...after 5sec`);
-    
+
     var requestPing = function() {
         requestGet("./internal/ping", {}, function(data) {
             location.reload();
@@ -811,7 +812,7 @@ class TaskRunner:
             setTimeout(requestPing, 500);
         });
     };
-    
+
     setTimeout(requestPing, 5000);
     </script>
                 """)
