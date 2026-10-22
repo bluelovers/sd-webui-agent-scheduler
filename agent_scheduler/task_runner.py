@@ -42,6 +42,7 @@ from .task_helpers import (
     serialize_script_args,
     deserialize_script_args,
     serialize_api_task_args,
+    apply_checkpoint_override,
     map_ui_task_args_list_to_named_args,
     map_named_args_to_ui_task_args_list,
 )
@@ -177,6 +178,10 @@ class TaskRunner:
 
         # Apply checkpoint override
         if checkpoint is not None:
+            # 此處刻意雙寫：override_settings_texts 是既有通道，只寫 dict 會讓依賴它的
+            # 舊環境失效，因此兩者並存。
+            apply_checkpoint_override(named_args, checkpoint)
+
             override: List[str] = named_args.get("override_settings_texts", [])
             override = [x for x in override if not x.startswith("Model hash: ")]
             if checkpoint != "System":
@@ -212,13 +217,7 @@ class TaskRunner:
         vae: str = None,
     ):
         # Apply checkpoint override
-        if checkpoint is not None:
-            override: Dict = named_args.get("override_settings", {})
-            if checkpoint != "System":
-                override["sd_model_checkpoint"] = checkpoint
-            else:
-                override.pop("sd_model_checkpoint", None)
-            named_args["override_settings"] = override
+        apply_checkpoint_override(named_args, checkpoint)
 
         # Apply VAE override
         if vae is not None:

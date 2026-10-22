@@ -620,6 +620,32 @@ def map_ui_task_args_to_api_task_args(named_args: Dict, script_args: List, is_im
     return api_task_args
 
 
+def apply_checkpoint_override(named_args: Dict, checkpoint: str):
+    """
+    將任務的 checkpoint 寫入 named_args["override_settings"]["sd_model_checkpoint"]
+
+    為什麼需要：checkpoint 的三種存值在覆寫時只有一種解釋 —— 具名 → 指派該模型、
+    "System" → 移除 override 改用系統當前模型、None（Runtime Checkpoint）→ 完全不動；
+    UI 與 API 兩條還原路徑對同一個 task 都必須得到相同結果。
+    """
+    # None（Runtime Checkpoint）＝不覆寫，保留任務內原有的 override
+    if checkpoint is None:
+        return
+
+    override: Dict = named_args.get("override_settings") or {}
+    # override_settings 可能被外部寫成非字典；不正規化會在後續存取拋錯
+    if not isinstance(override, dict):
+        override = {}
+
+    if checkpoint != "System":
+        override["sd_model_checkpoint"] = checkpoint
+    else:
+        # System：移除先前烘焙的 checkpoint，改用系統當前模型
+        override.pop("sd_model_checkpoint", None)
+
+    named_args["override_settings"] = override
+
+
 def serialize_api_task_args(
     params: Dict,
     is_img2img: bool,
