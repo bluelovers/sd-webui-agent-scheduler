@@ -1,9 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+// @ts-ignore
+import { cssBuildOutput } from './vite.css-format';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), cssBuildOutput()],
   build: {
     outDir: '../',
     rollupOptions: {

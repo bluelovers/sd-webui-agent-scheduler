@@ -103,17 +103,17 @@ const sharedGridOptions: GridOptions<Task> = {
       pinned: 'left',
       rowDrag: true,
       valueGetter({ data }) {
-        let list = [
+        const list = [
           data?.updated_at,
           data?.created_at,
         ]
           .filter(value => value)
-          .map(value => value != null ? new Date(value).toLocaleString(document.documentElement.lang) : '')
+          .map(value => value != null ? new Date(value).toLocaleString(document.documentElement.lang) : '');
 
         // @ts-ignore
-        list.unshift(data?.name ?? data?.id)
+        list.unshift(data?.name ?? data?.id);
 
-        return list.join('\n')
+        return list.join('\n');
       },
       cellClass: ({ data }: CellClassParams<Task, string>) => {
         if (data == null) return;
@@ -255,7 +255,7 @@ const sharedGridOptions: GridOptions<Task> = {
   enableBrowserTooltips: true,
   rowClass: [
     'my-ag-row-root',
-  ]
+  ],
 };
 
 function initSearchInput(selector: string) {

@@ -35,6 +35,7 @@ from .helpers import (
     _exit,
 )
 from .compat_a1111_forge.ui import get_ui_task_error_text, get_ui_task_geninfo
+from .compat_a1111_forge.infotext_labels import apply_model_texts
 from .task_helpers import (
     encode_image_to_base64,
     serialize_img2img_image_args,
@@ -182,11 +183,16 @@ class TaskRunner:
             # 舊環境失效，因此兩者並存。
             apply_checkpoint_override(named_args, checkpoint)
 
-            override: List[str] = named_args.get("override_settings_texts", [])
-            override = [x for x in override if not x.startswith("Model hash: ")]
-            if checkpoint != "System":
-                override.append("Model hash: " + checkpoint)
-            named_args["override_settings_texts"] = override
+            # texts 通道交由相容層雙寫新舊標籤（Forge Neo 消費 "Model: "，
+            # 舊環境消費 "Model hash: "）；三態判斷見 apply_model_texts。
+            old_texts: List[str] = named_args.get("override_settings_texts", [])
+            new_texts = apply_model_texts(old_texts, checkpoint)
+            if new_texts != old_texts:
+                # 與輸入不同才輸出差異，供終端直接確認雙寫是否生效
+                removed = [x for x in old_texts if x not in new_texts]
+                added = [x for x in new_texts if x not in old_texts]
+                print(f"[AgentScheduler] [texts] removed={removed}; added={added}")
+            named_args["override_settings_texts"] = new_texts
 
         # Apply VAE override
         if vae is not None:
@@ -261,6 +267,10 @@ class TaskRunner:
             # ignore script_args if not deserialization
             script_args = []
 
+        # 執行路徑才記錄（api.py 的顯示路徑為 deserialization=False，不輸出）
+        if deserialization:
+            self.__log_override_targets(task, is_ui, named_args, checkpoint, vae)
+
         return ParsedTaskArgs(
             is_ui=is_ui,
             named_args=named_args,
@@ -268,6 +278,57 @@ class TaskRunner:
             checkpoint=checkpoint,
             vae=vae,
         )
+
+    def __log_override_targets(
+        self, task: Task, is_ui: bool, named_args: Dict, checkpoint: str, vae: str
+    ):
+        """
+        輸出任務執行時實際送往 webui 的 checkpoint / VAE
+
+        為什麼需要：最終生效值取決於 override 套用（含解析與三態判斷），只看 task 存值
+        無法判斷實際送出什麼；每次執行輸出一份，供直接比對模型切換行為。
+
+        用 print 而非 logging：webui 環境下 logging 的 handler 不一定掛在使用者看到的
+        終端（shared_opts_backup.py 亦以 print 輸出），print 才保證直接可見。
+
+        顏色慣例與 shared_opts_backup.py 的 [change] 相同：實送值與存值不同
+        （如 name 經 resolve 正規化為 title）時整行以綠色（\\33[32m）標示；
+        Runtime／System／VAE 未覆寫等「沒有實送值」的狀態不算變動、維持原色。
+
+        checkpoint 讀 dict 鏡像（apply_checkpoint_override 寫入的解析結果）；VAE 對
+        API 讀 dict、對 UI 讀 texts（VAE 只存在於 texts 通道）。
+        """
+        override: Dict = named_args.get("override_settings") or {}
+        texts: List[str] = named_args.get("override_settings_texts") or []
+
+        sent_checkpoint = override.get("sd_model_checkpoint")
+        if sent_checkpoint is not None:
+            checkpoint_display = sent_checkpoint
+        else:
+            # 未寫入 override 時區分兩態：Runtime（不覆寫）與 System（移除後用系統模型）
+            checkpoint_display = (
+                "(runtime, no override)" if checkpoint is None else "(system model)"
+            )
+
+        sent_vae = override.get("sd_vae")
+        if sent_vae is None:
+            vae_prefix = "VAE: "
+            sent_vae = next(
+                (x[len(vae_prefix):] for x in texts if x.startswith(vae_prefix)), None
+            )
+        vae_display = sent_vae if sent_vae is not None else "(not overridden)"
+
+        line = (
+            f"[AgentScheduler] Task {task.id} execute ({'ui' if is_ui else 'api'}): "
+            f"checkpoint stored={checkpoint}, sent={checkpoint_display}; "
+            f"vae stored={vae}, sent={vae_display}"
+        )
+        # 變動判定：有實送值且與存值不同（如 name 正規化為 title）；未覆寫不算變動
+        changed = (sent_checkpoint is not None and sent_checkpoint != checkpoint) or (
+            sent_vae is not None and sent_vae != vae
+        )
+        # 顏色慣例同 shared_opts_backup.py 的 [change]：變動整行綠色，否則原色
+        print(f"\33[32m{line}\33[0m" if changed else line)
 
     def register_ui_task(
         self,

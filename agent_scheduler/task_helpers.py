@@ -15,7 +15,7 @@ import inspect
 import requests
 import numpy as np
 import torch
-from typing import Union, List, Dict
+from typing import Union, List, Dict, Optional
 from enum import Enum
 from PIL import Image, ImageOps, ImageChops, ImageEnhance, ImageFilter, PngImagePlugin
 from numpy import ndarray
@@ -23,7 +23,8 @@ from torch import Tensor
 
 from modules import sd_samplers, scripts, shared, sd_vae, images, txt2img, img2img
 from agent_scheduler.compat_a1111_forge.paste_params import create_override_settings_dict
-from modules.sd_models import CheckpointInfo, get_closet_checkpoint_match
+from agent_scheduler.compat_a1111_forge.infotext_labels import SYSTEM_CHECKPOINT
+from modules.sd_models import get_closet_checkpoint_match
 from modules.api.models import (
     StableDiffusionTxt2ImgProcessingAPI,
     StableDiffusionImg2ImgProcessingAPI,
@@ -620,6 +621,21 @@ def map_ui_task_args_to_api_task_args(named_args: Dict, script_args: List, is_im
     return api_task_args
 
 
+def resolve_checkpoint_title(checkpoint: str) -> Optional[str]:
+    """
+    把任意 checkpoint 表示解析為 checkpoint_aliases 的 canonical title；找不到回 None
+
+    為什麼需要：存值可能來自前端手改或 API 用戶輸入（未經 enqueue 解析），直接寫入
+    原值會在下游 process_images:807 的精確查表被靜默拒絕。經
+    get_closet_checkpoint_match 解析後與 enqueue 時（serialize_api_task_args）
+    採同一判定：先查精確別名（title / name / hash 等），再做子字串模糊匹配。
+    """
+    checkpoint_info = get_closet_checkpoint_match(checkpoint)
+    if not checkpoint_info:
+        return None
+    return checkpoint_info.title
+
+
 def apply_checkpoint_override(named_args: Dict, checkpoint: str):
     """
     將任務的 checkpoint 寫入 named_args["override_settings"]["sd_model_checkpoint"]
@@ -627,6 +643,8 @@ def apply_checkpoint_override(named_args: Dict, checkpoint: str):
     為什麼需要：checkpoint 的三種存值在覆寫時只有一種解釋 —— 具名 → 指派該模型、
     "System" → 移除 override 改用系統當前模型、None（Runtime Checkpoint）→ 完全不動；
     UI 與 API 兩條還原路徑對同一個 task 都必須得到相同結果。
+    具名值先經 resolve_checkpoint_title 正規化為 title；解析失敗與 enqueue 時一致 ——
+    不指定模型並移除烘焙舊值，退回系統模型。
     """
     # None（Runtime Checkpoint）＝不覆寫，保留任務內原有的 override
     if checkpoint is None:
@@ -637,8 +655,14 @@ def apply_checkpoint_override(named_args: Dict, checkpoint: str):
     if not isinstance(override, dict):
         override = {}
 
-    if checkpoint != "System":
-        override["sd_model_checkpoint"] = checkpoint
+    if checkpoint != SYSTEM_CHECKPOINT:
+        title = resolve_checkpoint_title(checkpoint)
+        if title is not None:
+            override["sd_model_checkpoint"] = title
+        else:
+            # 解析失敗：連同先前烘焙的 checkpoint 一併移除，退回系統模型
+            log.warning(f"Checkpoint {checkpoint} not found, use current system model")
+            override.pop("sd_model_checkpoint", None)
     else:
         # System：移除先前烘焙的 checkpoint，改用系統當前模型
         override.pop("sd_model_checkpoint", None)
@@ -711,11 +735,11 @@ def serialize_api_task_args(
 
     # 若有指定 checkpoint，則加入 override（找不到時退回系統模型）/ Apply checkpoint override, falling back to system model if not found.
     if checkpoint is not None:
-        checkpoint_info: CheckpointInfo = get_closet_checkpoint_match(checkpoint)
-        if not checkpoint_info:
+        title = resolve_checkpoint_title(checkpoint)
+        if not title:
             log.warning(f"Checkpoint {checkpoint} not found, use current system model")
         else:
-            args.override_settings["sd_model_checkpoint"] = checkpoint_info.title
+            args.override_settings["sd_model_checkpoint"] = title
 
     # 若有指定 VAE，則加入 override（找不到時退回系統 VAE）/ Apply VAE override, falling back to system VAE if not found.
     if vae is not None:

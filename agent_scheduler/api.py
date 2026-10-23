@@ -41,7 +41,12 @@ from .models import (
 )
 from .task_runner import TaskRunner
 from .helpers import log, request_with_retry
-from .task_helpers import encode_image_to_base64, img2img_image_args_by_mode
+from .task_helpers import (
+    encode_image_to_base64,
+    img2img_image_args_by_mode,
+    resolve_checkpoint_title,
+)
+from .compat_a1111_forge.infotext_labels import SYSTEM_CHECKPOINT
 
 
 def api_callback(callback_url: str, task_id: str, status: TaskStatus, images: list):
@@ -338,8 +343,15 @@ def regsiter_apis(app: App, task_runner: TaskRunner):
         if body.checkpoint or body.params:
             params: Dict = json.loads(task.params)
             if body.checkpoint is not None:
-                params["checkpoint"] = body.checkpoint
-            if body.checkpoint is not None:
+                # 與 enqueue 一致：可解析的先正規化為 title（與 serialize_api_task_args
+                # 同一判定）；"System" 原樣保留（執行時語意為移除 override）；
+                # 解析不了保留原值，交由執行時（apply_checkpoint_override）警告並退回系統模型
+                params["checkpoint"] = (
+                    body.checkpoint
+                    if body.checkpoint == SYSTEM_CHECKPOINT
+                    else resolve_checkpoint_title(body.checkpoint) or body.checkpoint
+                )
+            if body.params is not None:
                 params["args"].update(body.params)
 
             task.params = json.dumps(params)

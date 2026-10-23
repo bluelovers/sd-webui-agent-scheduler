@@ -1,7 +1,10 @@
 import { defineConfig } from 'vite';
 
+import { cssBuildOutput } from './vite.css-format';
+
 // https://vitejs.dev/config/
 export default defineConfig({
+  plugins: [cssBuildOutput()],
   build: {
     outDir: '../',
     copyPublicDir: false,

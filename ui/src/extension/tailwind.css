@@ -1,3 +1,5 @@
+@import "tailwindcss/theme.css";
+
 @tailwind components;
 @tailwind utilities;
 
@@ -12,7 +14,7 @@
   }
 
   .ts-btn-action {
-    @apply !m-0 first:rounded-l-[--button-small-radius] last:rounded-r-[--button-small-radius];
+    @apply m-0! first:rounded-l-[--button-small-radius] last:rounded-r-[--button-small-radius];
   }
 
   @keyframes blink {
