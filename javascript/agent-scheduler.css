@@ -1407,9 +1407,11 @@ button.ts-btn-action.stop:hover,button.ts-btn-action.stop[disabled]{border-color
 #agent_scheduler_action_search>label,#agent_scheduler_action_search_history>label{height:100%;position:relative}
 #agent_scheduler_action_search input.ts-search-input,#agent_scheduler_action_search_history input.ts-search-input{padding:var(--block-padding);height:100%}
 #txt2img_enqueue_wrapper,#img2img_enqueue_wrapper{gap:calc(var(--layout-gap) / 2);border-radius:var(--button-large-radius);flex-direction:column;min-width:210px;transition:all .5s;display:flex}
-#txt2img_enqueue_wrapper>.gradio-button,#img2img_enqueue_wrapper>.gradio-button{background:linear-gradient(to bottom right, var(--pp-ph-phe-ec-inputCheckboxChecked-background-color), var(--background-fill-secondary));border:var(--button-border-width) solid var(--background-fill-secondary);position:relative}
-#txt2img_enqueue_wrapper:hover .gradio-button,#img2img_enqueue_wrapper:hover .gradio-button{border-color:var(--body-text-color)}
+#txt2img_enqueue_wrapper>[id$=_enqueue],#img2img_enqueue_wrapper>[id$=_enqueue]{background:linear-gradient(to bottom right, var(--pp-ph-phe-ec-inputCheckboxChecked-background-color), var(--background-fill-secondary));border:var(--button-border-width) solid var(--background-fill-secondary);position:relative}
+#txt2img_enqueue_wrapper>[id$=_enqueue]:hover,#img2img_enqueue_wrapper>[id$=_enqueue]:hover{border-color:var(--body-text-color)}
 #txt2img_enqueue_wrapper>div:first-child,#img2img_enqueue_wrapper>div:first-child{flex-flow:row;flex:none;align-items:stretch;flex-grow:unset!important}
+.agent_scheduler_quick_row{flex-wrap:wrap;align-items:center}
+.agent_scheduler_quick_row>*{min-width:0;flex:none!important;width:auto!important}
 :not(#txt2img_generate_box)>#txt2img_enqueue_wrapper,:not(#img2img_generate_box)>#img2img_enqueue_wrapper{align-self:flex-start}
 #img2img_toprow .interrogate-col.has-queue-button{min-width:unset!important;gap:calc(var(--layout-gap) / 2)!important;flex-direction:row!important}
 #img2img_toprow .interrogate-col.has-queue-button button{margin:0}
