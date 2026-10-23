@@ -37,9 +37,11 @@ python tests\test_task_output.py             :: one file
 | `test_prompt_box_style.py` | `prompt_box_style` 支援偵測（`ui_toprow` 實作比對，而非只看選項）、Compact 判定與 `compact_prompt_box` 回退、以 `sys.modules` 替身模擬缺 API 時不拋例外、`is_compact_layout()` 純結構偵測 |
 | `test_enqueue_placement.py` | classic / Compact × Near Generate / Between 的掛載點矩陣（Compact 時 Enqueue 跟著 Generate 進 `results`、Between 落在 `prompt_container`）、非掛載時機回傳 None |
 | `test_batch_files.py` | `.bat` / `.ps1` 格式防護（規則見該測試檔的 docstring） |
+| `test_checkpoint_override.py` | texts 標籤雙寫三態（清理／雙寫／輸入不變）、`resolve_checkpoint_title` 命中與未命中、`apply_checkpoint_override` 五案例（None 不動、System 移除、具名正規化為 title、解析失敗警告＋退回系統、非字典正規化）；以 `sys.modules` 替身滿足 `task_helpers` 的模組層匯入 |
 
 **未涵蓋:** `task_runner.py` 與 `scripts/task_scheduler.py` 需要 sd-webui runtime（`modules.*`），
 無法在不啟動 webui 的狀態下匯入，因此僅做語法驗證（`py_compile`，指令見 `AGENTS.md` 的「驗證」）。
+`task_helpers.py` 的純邏輯（checkpoint 覆寫）已由 `test_checkpoint_override.py` 以 `sys.modules` 替身涵蓋。
 
 ## 檔案
 
@@ -51,3 +53,4 @@ python tests\test_task_output.py             :: one file
 - `test_prompt_box_style.py` — `agent_scheduler/compat_a1111_forge/prompt_box_style.py` 的測試
 - `test_enqueue_placement.py` — `agent_scheduler/enqueue_placement.py` 的測試
 - `test_batch_files.py` — `.bat` / `.ps1` 格式防護
+- `test_checkpoint_override.py` — `agent_scheduler/compat_a1111_forge/infotext_labels.py` 與 `agent_scheduler/task_helpers.py`（checkpoint 覆寫）的測試
