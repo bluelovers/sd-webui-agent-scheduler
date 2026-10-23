@@ -406,13 +406,18 @@ button.ts-btn-action {
 
   transition: .5s;
 
-  > .gradio-button {
+  /*
+   * 漸層與 hover 只作用在 Enqueue 主按鈕本身，選擇器用 [id$="_enqueue"] 限定：
+   * 若改以 .gradio-button 或容器 :hover 下發，列內其他按鈕一被指向，
+   * 主按鈕的 border 會跟著亮起，主按鈕的 hover 也會連動到其他按鈕。
+   */
+  > [id$="_enqueue"] {
     background: linear-gradient(to bottom right, var(--pp-ph-phe-ec-inputCheckboxChecked-background-color), var(--background-fill-secondary));
     border: var(--button-border-width) solid var(--background-fill-secondary);
     position: relative;
   }
 
-  &:hover .gradio-button {
+  > [id$="_enqueue"]:hover {
     /*
     background: linear-gradient(to bottom right, var(--pp-ph-phe-ec-inputCheckboxChecked-background-color), var(--body-text-color));
     */
@@ -425,6 +430,30 @@ button.ts-btn-action {
     align-items: stretch;
     flex: 0 0 auto;
     flex-grow: unset !important;
+  }
+}
+
+/*
+ * agent_scheduler_quick_row（核取方塊＋便捷按鈕列）預期排版：
+ * 單行水平並排、各項縮成內容寬，放不下時換行。
+ * 為什麼：外層 wrapper 是直向堆疊，不收窄會讓這些控制項
+ * 被拉成與 Enqueue 主按鈕等寬，看起來像同一組主按鈕。
+ */
+.agent_scheduler_quick_row {
+  /* 高度不同（核取方塊 vs 按鈕）仍垂直置中 */
+  align-items: center;
+
+  /* 內容過長時換行，避免文字被擠壓 */
+  flex-wrap: wrap;
+
+  /*
+   * !important：gradio 以類別給列內子項 flex: 1，
+   * 收窄必須蓋過它；0 0 auto + width auto 讓寬度回到內容寬
+   */
+  > * {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0;
   }
 }
 

@@ -104,6 +104,10 @@ class Script(scripts.Script):
         self.enqueue_row = None
         self.checkpoint_dropdown = None
         self.submit_button = None
+        # skip_change_output_dir 核取方塊與便捷 Pause / Resume（見 add_enqueue_button）
+        self.skip_change_output_dir_checkbox = None
+        self.pause_button = None
+        self.resume_button = None
         # 是否已確認為 Compact 版面（確認後沿用，見 after_component）/
         # Whether the Compact layout has been confirmed (reused afterwards, see after_component)
         self.compact_layout = False
@@ -209,7 +213,7 @@ class Script(scripts.Script):
             self.bind_enqueue_button(block)
 
     def add_enqueue_button(self):
-        # 建立 Enqueue 列：checkpoint 下拉選單與 Enqueue 按鈕
+        # 建立 Enqueue 列：checkpoint 下拉選單、選項與便捷按鈕列（主按鈕上方）、Enqueue 主按鈕
         id_part = "img2img" if self.is_img2img else "txt2img"
         with gr.Row(elem_id=f"{id_part}_enqueue_wrapper") as row:
             self.enqueue_row = row
@@ -229,7 +233,40 @@ class Script(scripts.Script):
                     lambda: {"choices": get_checkpoint_choices()},
                     f"refresh_{id_part}_checkpoint",
                 )
-            # 實際的 Enqueue 按鈕
+
+            # 選項與便捷按鈕列放在主按鈕上方：外層 wrapper 是直向堆疊（column），
+            # 自成一列才會並排，也才不會與 Enqueue 主按鈕等寬
+            with gr.Row(elem_classes="agent_scheduler_quick_row"):
+                # 「Disable output to agent-scheduler directory」(skip_change_output_dir)：
+                # 勾選時該次任務不啟動 change_output_dir 機制。
+                # 刻意不做記憶功能：不進設定、不進 localStorage，重載後一律回到未勾選；
+                # 生效範圍只綁在勾選狀態下按下的那次 Enqueue 所產生的任務上。
+                self.skip_change_output_dir_checkbox = gr.Checkbox(
+                    label="Disable output to agent-scheduler directory",
+                    value=False,
+                    elem_id=f"{id_part}_enqueue_skip_change_output_dir",
+                )
+
+                # 便捷按鈕沿用 ToolButton 的圖示按鈕（與 send to 同款、尺寸不搶主按鈕視覺）；
+                # 顏色交由 variant 決定（stop＝紅、primary＝藍），不另寫樣式，說明放 tooltip；
+                # 顯示狀態由 ui/src/extension/index.ts 與 Task Queue 頁籤那對一併處理
+                paused = getattr(shared.opts, "queue_paused", False)
+                self.pause_button = ToolButton(
+                    "⏸",
+                    elem_id=f"{id_part}_enqueue_pause",
+                    variant="stop",
+                    tooltip="Pause queue: queued tasks wait, the running one finishes",
+                    visible=not paused,
+                )
+                self.resume_button = ToolButton(
+                    "▶",
+                    elem_id=f"{id_part}_enqueue_resume",
+                    variant="primary",
+                    tooltip="Resume queue: start the next queued task",
+                    visible=paused,
+                )
+
+            # 實際的 Enqueue 主按鈕（列內最後一個、也是最大的一個）
             self.submit_button = gr.Button("Enqueue", elem_id=f"{id_part}_enqueue", variant="primary")
 
     def bind_enqueue_button(self, root: gr.Blocks):
@@ -262,9 +299,20 @@ class Script(scripts.Script):
 
             # 找到與主生成函式相同輸入的 BlockFunction，作為 Enqueue 的輸入來源
             fn_block = next(fn for fn in get_ui_fns(root) if compare_components_with_ids(fn.inputs, dependency["inputs"]))
-            fn = self.wrap_register_ui_task()
             inputs = fn_block.inputs.copy()
             inputs.insert(0, self.checkpoint_dropdown)
+
+            # skip_change_output_dir 核取方塊的插入位置有兩個約束，缺一不可：
+            # 1) 必須排在 _js 覆寫的索引之後（res[0]=checkpoint、res[1]=task id、
+            #    img2img 另有 res[2]=mode），否則值會被 JS 蓋掉；
+            # 2) 不可接在輸入清單尾端：create_submit_args 的尾端檢查以清單結尾為基準，
+            #    多一個元素會讓檢查位移到最後一個 generate 輸入上。
+            skip_change_output_dir_index = None
+            if self.skip_change_output_dir_checkbox is not None:
+                skip_change_output_dir_index = 3 if is_img2img else 2
+                inputs.insert(skip_change_output_dir_index, self.skip_change_output_dir_checkbox)
+
+            fn = self.wrap_register_ui_task(skip_change_output_dir_index)
             args = dict(
                 fn=fn,
                 _js="submit_enqueue_img2img" if is_img2img else "submit_enqueue",
@@ -288,7 +336,7 @@ class Script(scripts.Script):
                     queue=False,
                 )
 
-    def wrap_register_ui_task(self):
+    def wrap_register_ui_task(self, skip_change_output_dir_index: int = None):
         # 包裝 Enqueue 行為：解析 checkbox、checkpoint、task 名稱後註冊任務
         def f(request: gr.Request, *args):
             # 至少需要一個參數，否則視為非法呼叫
@@ -297,7 +345,15 @@ class Script(scripts.Script):
 
             checkpoint: str = args[0]
             task_id = args[1]
-            args = args[1:]
+
+            # 讀出 skip_change_output_dir 並連同 checkpoint 一起移出參數清單；
+            # 其餘參數須維持原本 generate 輸入的順序，序列化才對得齊處理函式的簽章。
+            skip_change_output_dir = False
+            if skip_change_output_dir_index is not None and len(args) > skip_change_output_dir_index:
+                skip_change_output_dir = bool(args[skip_change_output_dir_index])
+                args = list(args[1:skip_change_output_dir_index]) + list(args[skip_change_output_dir_index + 1 :])
+            else:
+                args = args[1:]
             task_name = None
 
             # 特別關鍵字：對每一個 checkpoint 各產生一個任務
@@ -327,7 +383,7 @@ class Script(scripts.Script):
 
                 # gr.Info(f"[AgentScheduler] Add new Task {t_id} {task_name or ''}")
 
-                # 註冊單一 UI 任務，帶入 checkpoint 與任務名稱
+                # 註冊單一 UI 任務，帶入 checkpoint、任務名稱與 skip_change_output_dir 選擇
                 task_runner.register_ui_task(
                     t_id,
                     self.is_img2img,
@@ -335,6 +391,7 @@ class Script(scripts.Script):
                     checkpoint=c,
                     task_name=task_name,
                     request=request,
+                    skip_change_output_dir=skip_change_output_dir,
                 )
 
             # 註冊後立即觸發背景執行緒處理佇列

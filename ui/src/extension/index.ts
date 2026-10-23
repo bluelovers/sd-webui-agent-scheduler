@@ -258,6 +258,19 @@ const sharedGridOptions: GridOptions<Task> = {
   ],
 };
 
+/**
+ * 切換便捷 Pause/Resume 的顯示狀態
+ *
+ * gradio 的 `visible` 可能以 class、`hidden` 屬性或 `style.display` 實作，
+ * 三者一起切換，兩種 sd-webui 環境才會得到一致結果。
+ */
+function setElementHidden(element: HTMLElement, hidden: boolean): void {
+  element.classList.toggle('hide', hidden);
+  element.classList.toggle('hidden', hidden);
+  element.toggleAttribute('hidden', hidden);
+  element.style.display = hidden ? 'none' : '';
+}
+
 function initSearchInput(selector: string) {
   const searchContainer = gradioApp().querySelector<HTMLDivElement>(selector);
   if (searchContainer == null) {
@@ -588,6 +601,23 @@ function initPendingTab() {
   )!;
   resumeButton.addEventListener('click', () => store.resumeQueue().then(notify));
 
+  /**
+   * Enqueue 列旁的便捷 Pause/Resume：與頁籤那對共用同一組 store 動作，
+   * 兩處點擊行為因而一致（元件由 scripts/task_scheduler.py 建立）
+   */
+  const quickPauseButtons = Array.from(
+    gradioApp().querySelectorAll<HTMLElement>('[id$="_enqueue_pause"]')
+  );
+  const quickResumeButtons = Array.from(
+    gradioApp().querySelectorAll<HTMLElement>('[id$="_enqueue_resume"]')
+  );
+  quickPauseButtons.forEach(button =>
+    button.addEventListener('click', () => store.pauseQueue().then(notify))
+  );
+  quickResumeButtons.forEach(button =>
+    button.addEventListener('click', () => store.resumeQueue().then(notify))
+  );
+
   const clearButton = gradioApp().querySelector<HTMLButtonElement>(
     '#agent_scheduler_action_clear_queue'
   )!;
@@ -648,6 +678,10 @@ function initPendingTab() {
       pauseButton.classList.remove('hide', 'hidden');
       resumeButton.classList.add('hide', 'hidden');
     }
+
+    /** 便捷列跟著同一個 paused 狀態切換，與頁籤那對同步顯示 */
+    quickPauseButtons.forEach(button => setElementHidden(button, state.paused));
+    quickResumeButtons.forEach(button => setElementHidden(button, !state.paused));
   };
   store.subscribe(updateUiState);
   updateUiState(store.getState());

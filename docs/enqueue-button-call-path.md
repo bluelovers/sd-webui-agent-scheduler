@@ -33,6 +33,11 @@ Script.after_component (task_scheduler.py:123-204)
    └─ add_enqueue_row() → add_enqueue_button()   (174-190 → 211-233)
         ├─ gr.Row(elem_id=f"{id_part}_enqueue_wrapper")
         ├─ checkpoint 下拉選單（217-223）＋重新整理按鈕（226-231）
+        ├─ gr.Row(elem_classes="agent_scheduler_quick_row")   ← 位於主按鈕上方
+        │    ├─ gr.Checkbox("Disable output to agent-scheduler directory",
+        │    │              elem_id=f"{id_part}_enqueue_skip_change_output_dir")
+        │    └─ 便捷 ToolButton "⏸️"/"▶️"（elem_id=f"{id_part}_enqueue_pause"|"_enqueue_resume"，
+        │        與 Task Queue 頁籤那對並列綁定，見 index.ts 的 quickPauseButtons）
         └─ gr.Button("Enqueue", elem_id=f"{id_part}_enqueue")
 
 Script.on_app_started (206-209) → bind_enqueue_button(block) (235-289)
@@ -40,7 +45,9 @@ Script.on_app_started (206-209) → bind_enqueue_button(block) (235-289)
    │     outputs >= 4            → 主生成依賴 dependency
    │     單一輸出且為 UiControlNetUnit → cnet_dependency
    ├─ fn_block = inputs 相同的 BlockFunction (264)
-   ├─ inputs = fn_block.inputs.copy()，並 insert(0, checkpoint_dropdown) (266-267)
+   ├─ inputs = fn_block.inputs.copy()，insert(0, checkpoint_dropdown)，
+   │           再 insert(skip_change_output_dir, 索引 txt2img=2 / img2img=3)（266-267）
+   │           ← 位置不可改：排在 _js 覆寫索引之後，且不可接在尾端（見下表）
    ├─ submit_button.click(fn=…, _js="submit_enqueue"|"_img2img", …) (268-277)
    └─ 若有 ControlNet：第二個 click → UiControlNetUnit, queue=False (280-289)
 ```
@@ -49,9 +56,17 @@ Script.on_app_started (206-209) → bind_enqueue_button(block) (235-289)
 
 這是後續 JS 與 Python 索引的關鍵：
 
-| index | 0 | 1 | 2 | 3… |
-| :--- | :--- | :--- | :--- | :--- |
-| Python `inputs` | `checkpoint_dropdown` | `id_task`（`gr.State`） | img2img `mode` | 其餘 generate 輸入 |
+| index | 0 | 1 | 2 | 3 | 4… |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| txt2img `inputs` | `checkpoint_dropdown` | `id_task`（`gr.State`） | **Disable output to agent-scheduler directory** | 其餘 generate 輸入 | |
+| img2img `inputs` | `checkpoint_dropdown` | `id_task`（`gr.State`） | `mode` | **Disable output to agent-scheduler directory** | 其餘 generate 輸入 |
+
+兩條約束：
+
+1. **排在 `_js` 覆寫索引之後**：`submit_enqueue` 寫 `res[0]`/`res[1]`，`submit_enqueue_img2img`
+   另寫 `res[2]`；核取方塊若落在這些索引會被 JS 蓋掉。
+2. **不可接在尾端**：`create_submit_args` 的尾端檢查是「相對於清單結尾」計算的，
+   多一個元素會讓檢查位移到最後一個 generate 輸入上。
 
 ---
 
@@ -97,14 +112,20 @@ gradio 呼叫 f(request, *args)                scripts/task_scheduler.py:291-343
    │  request: gr.Request 由 gradio 依型別注入
    │  args[0] = checkpoint（已由 JS 解析後的最終值）
    │  args[1] = task_id（即 id_task state，來自 randomId()）
-   │  args    = args[1:]     ← 丟棄 checkpoint，其餘即「原本 generate 的輸入」(300)
+   │  args[skip_change_output_dir_index] = skip_change_output_dir 選項（txt2img=2、img2img=3）
+   │  args    = 移除 args[0] 與該核取方塊後的剩餘   ← 其餘即「原本 generate 的輸入」(300)
    ├─ if task_id == "$$_queue_with_all_checkpoints_$$" → checkpoint = list_checkpoint_tiles() (304-306)
    ├─ elif not task_id.startswith("task(") → task_name = task_id; task_id = uuid4() (309-311)
    ├─ checkpoint 解析 (313-322)
    └─ for i, c in enumerate(checkpoint):    (325-338)  ← 多 checkpoint 會產生 N 個 task
          task_runner.register_ui_task(t_id, is_img2img, *args,
-                                      checkpoint=c, task_name=task_name, request=request)
+                                      checkpoint=c, task_name=task_name, request=request,
+                                      skip_change_output_dir=skip_change_output_dir)
 ```
+
+`skip_change_output_dir` 隨 `params` 序列化（`__serialize_ui_task_args`），執行時由
+`parse_task_args` 讀回；未勾選與舊任務（params 無此 key）一律為 `False`，
+`execute_task` 因此只在勾選時略過 `change_output_dir()`（含強制 samples/grid）。
 
 ---
 

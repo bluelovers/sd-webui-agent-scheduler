@@ -68,6 +68,8 @@ class ParsedTaskArgs(BaseModel):
     script_args: List[Any]
     checkpoint: Optional[str] = None
     vae: Optional[str] = None
+    # 該任務是否略過 change_output_dir 機制，取自 Enqueue 時的 skip_change_output_dir 選項
+    skip_change_output_dir: bool = False
 
 
 class TaskRunner:
@@ -119,6 +121,7 @@ class TaskRunner:
         checkpoint: str = None,
         vae: str = None,
         request: gr.Request = None,
+        skip_change_output_dir: bool = False,
     ):
         named_args, script_args = map_ui_task_args_list_to_named_args(list(args), is_img2img)
 
@@ -136,6 +139,9 @@ class TaskRunner:
                 "vae": vae,
                 "is_ui": True,
                 "is_img2img": is_img2img,
+                # 是否略過 change_output_dir 機制；只屬於「按下 Enqueue 那一刻」的選項，
+                # 隨任務存進 params，但 checkbox 本身不做任何持久化。
+                "skip_change_output_dir": bool(skip_change_output_dir),
             }
         )
         script_params = serialize_script_args(script_args)
@@ -252,6 +258,8 @@ class TaskRunner:
         is_img2img = parsed.get("is_img2img", None)
         checkpoint = parsed.get("checkpoint", None)
         vae = parsed.get("vae", None)
+        # 舊任務的 params 沒有這個 key，一律視為「不略過」，維持原本行為
+        skip_change_output_dir = bool(parsed.get("skip_change_output_dir", False))
         named_args: Dict[str, Any] = parsed["args"]
         script_args: List[Any] = parsed.get("script_args", task.script_params)
 
@@ -277,6 +285,7 @@ class TaskRunner:
             script_args=script_args,
             checkpoint=checkpoint,
             vae=vae,
+            skip_change_output_dir=skip_change_output_dir,
         )
 
     def __log_override_targets(
@@ -338,13 +347,19 @@ class TaskRunner:
         checkpoint: str = None,
         task_name: str = None,
         request: gr.Request = None,
+        skip_change_output_dir: bool = False,
     ):
         progress.add_task_to_queue(task_id)
 
         vae = getattr(shared.opts, "sd_vae", "Automatic")
 
         (params, script_args) = self.__serialize_ui_task_args(
-            is_img2img, *args, checkpoint=checkpoint, vae=vae, request=request
+            is_img2img,
+            *args,
+            checkpoint=checkpoint,
+            vae=vae,
+            request=request,
+            skip_change_output_dir=skip_change_output_dir,
         )
 
         task_type = "img2img" if is_img2img else "txt2img"
@@ -414,7 +429,10 @@ class TaskRunner:
 
                 shared_opts_backup = SharedOptsBackup(shared.opts)
 
-                shared_opts_backup.set_shared_opts(samples_save=True, grid_save=True)
+                # 勾選 skip_change_output_dir 的任務完全不碰 shared.opts：
+                # 連強制 samples/grid 與目錄改寫一併略過，輸出去向維持與手動按下 Generate 時相同。
+                if not task_args.skip_change_output_dir:
+                    shared_opts_backup.set_shared_opts(samples_save=True, grid_save=True)
 
                 def change_output_dir():
                     # 將本次任務的產圖輸出導向獨立子目錄，避免與使用者一般產圖混在一起；
@@ -584,7 +602,9 @@ class TaskRunner:
 
                     return task_dir_abs
 
-                task_output_dir = change_output_dir()
+                # 未勾選才啟動 change_output_dir 機制；勾選時回傳 None，
+                # 結尾的 cleanup_task_output_dir 收到 None 即自行略過（`if not task_dir`）。
+                task_output_dir = None if task_args.skip_change_output_dir else change_output_dir()
 
                 res = self.__execute_task(task_id, is_img2img, task_args)
 
