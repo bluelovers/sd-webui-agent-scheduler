@@ -104,12 +104,13 @@ class Script(scripts.Script):
         self.enqueue_row = None
         self.checkpoint_dropdown = None
         self.submit_button = None
-        # skip_change_output_dir 核取方塊與便捷 Pause / Resume（見 add_enqueue_button）
+        # skip_change_output_dir 核取方塊
         self.skip_change_output_dir_checkbox = None
+        # 便捷按鈕（見 add_enqueue_button）
         self.pause_button = None
         self.resume_button = None
+        self.unload_models_button = None
         # 是否已確認為 Compact 版面（確認後沿用，見 after_component）/
-        # Whether the Compact layout has been confirmed (reused afterwards, see after_component)
         self.compact_layout = False
 
     def title(self):
@@ -248,7 +249,7 @@ class Script(scripts.Script):
                 )
 
                 # 便捷按鈕沿用 ToolButton 的圖示按鈕（與 send to 同款、尺寸不搶主按鈕視覺）；
-                # 顏色交由 variant 決定（stop＝紅、primary＝藍），不另寫樣式，說明放 tooltip；
+                # 顏色交由 variant 決定（stop、primary），不另寫樣式，說明放 tooltip；
                 # 顯示狀態由 ui/src/extension/index.ts 與 Task Queue 頁籤那對一併處理
                 paused = getattr(shared.opts, "queue_paused", False)
                 self.pause_button = ToolButton(
@@ -264,6 +265,14 @@ class Script(scripts.Script):
                     variant="primary",
                     tooltip="Resume queue: start the next queued task",
                     visible=paused,
+                )
+
+                # 一鍵卸載所有模型以釋放 VRAM；ml-auto 讓按鈕在列內自動靠右
+                self.unload_models_button = ToolButton(
+                    "🧹",
+                    elem_id=f"{id_part}_enqueue_unload_models",
+                    elem_classes=["ml-auto"],
+                    tooltip="Unload all models and free VRAM",
                 )
 
             # 實際的 Enqueue 主按鈕（列內最後一個、也是最大的一個）
@@ -323,6 +332,16 @@ class Script(scripts.Script):
 
             # 將 Enqueue 點擊事件綁定到包裝後的註冊函式
             self.submit_button.click(**args)
+
+            # 一鍵卸載模型：純後端動作、無輸入輸出；queue=False 讓它即時執行，
+            # 不排在生成佇列後面才輪到
+            if self.unload_models_button is not None:
+                self.unload_models_button.click(
+                    fn=unload_all_models,
+                    inputs=None,
+                    outputs=None,
+                    queue=False,
+                )
 
             # 若存在 ControlNet 單元，額外綁定以確保其設定一併送出
             if cnet_dependency is not None:
@@ -398,6 +417,23 @@ class Script(scripts.Script):
             task_runner.execute_pending_tasks_threading()
 
         return f
+
+
+def unload_all_models():
+    # 匯入放在函式內：handler 只在按鈕點擊時執行，
+    # 避免載入本檔時就要求 backend 等模組存在（A1111 無 backend 套件）
+    from backend import memory_management
+    from modules import devices, errors
+    import gc
+
+    try:
+        memory_management.unload_all_models()
+        _clear_prompt_cache()
+    except Exception:
+        errors.report("Error releasing memory", exc_info=True)
+    finally:
+        devices.torch_gc()
+        gc.collect()
 
 
 def get_checkpoint_choices():
