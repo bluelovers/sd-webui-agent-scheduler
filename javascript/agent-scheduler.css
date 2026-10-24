@@ -1409,6 +1409,7 @@ button.ts-btn-action.stop:hover,button.ts-btn-action.stop[disabled]{border-color
 #txt2img_enqueue_wrapper,#img2img_enqueue_wrapper{gap:calc(var(--layout-gap) / 2);border-radius:var(--button-large-radius);flex-direction:column;min-width:210px;transition:all .5s;display:flex}
 #txt2img_enqueue_wrapper>[id$=_enqueue],#img2img_enqueue_wrapper>[id$=_enqueue]{background:linear-gradient(to bottom right, var(--pp-ph-phe-ec-inputCheckboxChecked-background-color), var(--background-fill-secondary));border:var(--button-border-width) solid var(--background-fill-secondary);position:relative}
 #txt2img_enqueue_wrapper>[id$=_enqueue]:hover,#img2img_enqueue_wrapper>[id$=_enqueue]:hover{border-color:var(--body-text-color)}
+#txt2img_enqueue_wrapper [id$=_enqueue_unload_models],#img2img_enqueue_wrapper [id$=_enqueue_unload_models]{margin-left:auto}
 #txt2img_enqueue_wrapper>div:first-child,#img2img_enqueue_wrapper>div:first-child{flex-flow:row;flex:none;align-items:stretch;flex-grow:unset!important}
 .agent_scheduler_quick_row{flex-wrap:wrap;align-items:center}
 .agent_scheduler_quick_row>*{min-width:0;flex:none!important;width:auto!important}
