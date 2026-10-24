@@ -433,7 +433,7 @@ def unload_all_models():
     finally:
         devices.torch_gc()
         gc.collect()
-    print("All models unloaded")
+    print("[AgentScheduler] All models unloaded")
 
 
 def get_checkpoint_choices():
