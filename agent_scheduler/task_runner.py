@@ -339,6 +339,18 @@ class TaskRunner:
         # 顏色慣例同 shared_opts_backup.py 的 [change]：變動整行綠色，否則原色
         print(f"\33[32m{line}\33[0m" if changed else line)
 
+    def __log_paused_enqueue(self, task: Task):
+        """暫停狀態下新增任務的終端提示，附前方排隊數量
+
+        查位置失敗時退回不帶位置的提示，排程本身不受影響。
+        """
+        try:
+            position = task_manager.get_task_position(task.id)
+            ahead = f"{position} task(s) ahead in queue"
+        except Exception:
+            ahead = "waiting in queue"
+        print(f"[AgentScheduler] Queue is paused: task {task.id} added, {ahead}")
+
     def register_ui_task(
         self,
         task_id: str,
@@ -372,6 +384,11 @@ class TaskRunner:
         )
         task_manager.add_task(task)
 
+        # 暫停期間新增的任務仍照常入庫，只是不會被撈起執行；
+        # 在終端提示前方排隊數量，避免使用者誤以為沒有排進佇列
+        if self.paused:
+            self.__log_paused_enqueue(task)
+
         self.__run_callbacks("task_registered", task_id, is_img2img=is_img2img, is_ui=True, args=params)
         self.__total_pending_tasks += 1
 
@@ -399,6 +416,10 @@ class TaskRunner:
             script_params=script_params,
         )
         task_manager.add_task(task)
+
+        # 與 register_ui_task 一致：暫停期間的 API 任務也給終端提示
+        if self.paused:
+            self.__log_paused_enqueue(task)
 
         self.__run_callbacks("task_registered", task_id, is_img2img=is_img2img, is_ui=False, args=params)
         self.__total_pending_tasks += 1
