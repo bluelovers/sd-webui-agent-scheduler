@@ -1,8 +1,10 @@
 """gradio UI 相依結構的版本相容工具"""
 
+import html
 import json
+import re
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 """
 統一取得 gradio Blocks 的 click 相依列表
@@ -12,11 +14,6 @@ from typing import Any, Dict, List
 新版 gradio (Forge Neo, 4.x) 改以 root.fns 儲存 BlockFunction 物件，
 targets 為 (id, event_name) 元組、inputs / outputs 為元件物件列表。
 此函式將兩種結構正規化為舊版 dict 格式，供既有程式碼直接使用。
-Legacy gradio (A1111 classic) stores dependencies in root.dependencies as dicts
-with trigger / targets / inputs / outputs fields expressed as component ids.
-Newer gradio (Forge Neo, 4.x) stores BlockFunction objects in root.fns instead,
-with targets as (id, event_name) tuples and inputs / outputs as component lists.
-This function normalizes both into the legacy dict format for reuse by existing code.
 """
 
 
@@ -49,8 +46,6 @@ def get_ui_fns(root: Any) -> List[Any]:
 
     新版 gradio 的 root.fns 為 dict，迭代時會得到 id 鍵而非函式物件；
     此 helper 統一回傳可迭代的 BlockFunction 列表。
-    Newer gradio's root.fns is a dict, so iterating yields id keys instead of
-    function objects; this helper uniformly returns an iterable list of BlockFunction.
 
     @param root - gradio Blocks 實例
     @returns BlockFunction 物件列表
@@ -67,9 +62,6 @@ def get_ui_task_geninfo(result: Any) -> Any:
     A1111 回傳 (images, geninfo, html_info, comments)，geninfo 位於索引 1。
     Forge 回傳 (gallery, video_arg, geninfo, html_info, comments)，geninfo 位於索引 2。
     以「字串且可解析為 JSON」定位 geninfo，因此兩種結構皆相容。
-    A1111 returns (images, geninfo, html_info, comments) with geninfo at index 1.
-    Forge returns (gallery, video_arg, geninfo, html_info, comments) with geninfo at index 2.
-    The geninfo is located by being a string parseable as JSON, so both structures work.
 
     @param result - wrap_gradio_call 的回傳元組
     @returns geninfo JSON 字串；找不到時回傳 None
@@ -89,23 +81,61 @@ def get_ui_task_geninfo(result: Any) -> Any:
     return None
 
 
-def get_ui_task_error_text(result: Any) -> str:
-    """從 UI 回傳元組中取出錯誤/資訊文字（排除 geninfo）/ Get the error
+# error div 的起始標籤：<div ... class="error" ...>；擷取 class 屬性值供後續判斷
+# Opening tag of an error div: <div ... class="error" ...>; capture the class value for the check.
+_ERROR_DIV_START_RE = re.compile(
+    r"<div\b[^>]*?\bclass\s*=\s*(?P<q>['\"])(?P<cls>[^'\"]*)(?P=q)[^>]*>",
+    re.IGNORECASE,
+)
 
-    A1111 將錯誤資訊放在索引 2（html_info），Forge 則依例外或正常回傳路徑
-    分別位於索引 1（exception fallback 的 ""）或索引 3（html_info）。
-    此函式收集除 geninfo 以外的所有字串元素，讓呼叫端可針對
-    "CUDA out of memory" 等訊息做檢查，而不需理會各版本的索引差異。
-    A1111 places error info at index 2 (html_info); Forge places it at index 1
-    (the "" in the exception fallback) or index 3 (html_info) depending on path.
-    This collects every string element except geninfo so callers can scan for
-    messages such as "CUDA out of memory" without caring about per-version indexes.
+# 任何 <div> 開頭或 </div> 結尾標籤，供深度配對使用
+# Any <div> start or </div> end tag, used for depth matching.
+_DIV_TAG_RE = re.compile(r"<div\b|</div\s*>", re.IGNORECASE)
+
+
+def _div_body_end(text: str, start: int) -> Optional[int]:
+    """從 start 起掃描，回傳包住該 <div> 的 </div> 起始索引
+
+    以深度配對（而非非貪婪抓第一個 </div>）處理巢狀 div，
+    避免錯誤區塊後方的 performance 等同級 div 被誤併入訊息。
+
+    @param text - 含有 error div 的 HTML 字串
+    @param start - 開始標籤結束處的索引
+    @returns 配對 </div> 的起始索引；標籤未閉合時回傳 None（取用字串其餘部分）
+    """
+    depth = 1
+    for match in _DIV_TAG_RE.finditer(text, start):
+        if match.group(0).startswith("</"):
+            depth -= 1
+            if depth == 0:
+                return match.start()
+        else:
+            depth += 1
+    return None
+
+
+def get_ui_task_error_text(result: Any) -> str:
+    """抽出 UI 回傳元組中 error div 的純文字錯誤訊息 / Extract the plain-text error
+
+    A1111 與 Forge 在 wrap_gradio_call 捕獲例外後不重拋，改回傳
+    [None, '', "<div class='error'>...</div><div class='performance'>...</div>"]；
+    內文先經 html.escape 轉義，同一筆回傳還可能夾帶 performance 等非錯誤 div。
+    此函式只取出 class 含 error 的 div 內文並還原轉義，讓呼叫端拿到可直接寫入
+    日誌、掃描 "CUDA out of memory" 等關鍵字的純文字，而不必理會索引差異。
 
     @param result - wrap_gradio_call 的回傳元組
-    @returns 合併後的錯誤/資訊文字
+    @returns error div 的純文字訊息（多個以換行連接）；沒有 error div 時回傳 ""
     """
-    geninfo = get_ui_task_geninfo(result)
-    # 收集合併除 geninfo 以外的所有字串，讓呼叫端能以單一字串掃描 OOM 等錯誤訊息
-    # Collect and join every string except geninfo so callers can scan one string for
-    # errors such as "CUDA out of memory".
-    return "\n".join(item for item in result[1:] if isinstance(item, str) and item != geninfo)
+    messages: List[str] = []
+    for item in result:
+        if not isinstance(item, str):
+            continue
+        for match in _ERROR_DIV_START_RE.finditer(item):
+            if "error" not in match.group("cls").split():
+                continue
+            end = _div_body_end(item, match.end())
+            body = item[match.end():] if end is None else item[match.end():end]
+            text = html.unescape(body).strip()
+            if text:
+                messages.append(text)
+    return "\n".join(messages)
