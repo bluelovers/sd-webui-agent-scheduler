@@ -424,6 +424,10 @@ button.ts-btn-action {
     border-color: var(--body-text-color);
   }
 
+  [id$="_enqueue_unload_models"] {
+    margin-left: auto;
+  }
+
   > div:first-child {
     flex-direction: row;
     flex-wrap: nowrap;

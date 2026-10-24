@@ -43,7 +43,7 @@ from agent_scheduler.api import regsiter_apis
 
 # 判斷是否為 SD.Next 環境，以利切換不同的 UI 元件型別
 is_sdnext = parser.description == "SD.Next"
-ToolButton = gr.Button if is_sdnext else ui_components.ToolButton
+ToolButton = gr.Button if ui_components.ToolButton is None else ui_components.ToolButton
 
 # 全域任務執行器實例，於 on_app_started 時初始化
 task_runner: TaskRunner = None
@@ -267,11 +267,11 @@ class Script(scripts.Script):
                     visible=paused,
                 )
 
-                # 一鍵卸載所有模型以釋放 VRAM；ml-auto 讓按鈕在列內自動靠右
+                # 一鍵卸載所有模型以釋放 VRAM 讓按鈕在列內自動靠右
                 self.unload_models_button = ToolButton(
-                    "🧹",
+                    "🧼",
                     elem_id=f"{id_part}_enqueue_unload_models",
-                    elem_classes=["ml-auto"],
+                    elem_classes="ml-auto",
                     tooltip="Unload all models and free VRAM",
                 )
 

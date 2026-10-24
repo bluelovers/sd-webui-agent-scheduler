@@ -824,6 +824,7 @@ function initPendingTab() {
               class="ts-btn-action stop ts-btn-delete">
               ${data.status === 'pending' ? deleteIcon : cancelIcon}
             </button>
+            <span class="ml-auto"></span>
           </div>
           `;
 
