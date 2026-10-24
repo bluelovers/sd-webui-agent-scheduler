@@ -428,12 +428,12 @@ def unload_all_models():
 
     try:
         memory_management.unload_all_models()
-        _clear_prompt_cache()
     except Exception:
         errors.report("Error releasing memory", exc_info=True)
     finally:
         devices.torch_gc()
         gc.collect()
+    print("All models unloaded")
 
 
 def get_checkpoint_choices():
