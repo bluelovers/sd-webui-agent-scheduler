@@ -24,6 +24,7 @@ from agent_scheduler.db import init as init_db, task_manager
 from agent_scheduler.api import regsiter_apis
 # 畫面模組與共用常數：畫面只做自己的 UI，不反向 import 本檔
 from agent_scheduler.sd_webui import main_any2img, tab_scheduler
+from agent_scheduler.sd_webui.notify import notify_message
 from agent_scheduler.sd_webui.ui_constants import (
     agent_scheduler_id,
     agent_scheduler_title,
@@ -40,7 +41,11 @@ from agent_scheduler.sd_webui.ui_constants import (
     ui_placement_append_to_main,
     ui_placement_as_tab,
 )
-from agent_scheduler.utils.torch_helpers import unload_all_models
+from agent_scheduler.utils.torch_helpers import (
+    UNLOADED_ALL_MODELS,
+    UNLOADING_ALL_MODELS,
+    unload_all_models,
+)
 
 # 全域任務執行器實例，於 on_app_started 時初始化
 task_runner: TaskRunner = None
@@ -163,7 +168,7 @@ class Script(scripts.Script):
             # 不排在生成佇列後面才輪到
             if self.unload_models_button is not None:
                 self.unload_models_button.click(
-                    fn=unload_all_models,
+                    fn=unload_all_models_with_notification,
                     inputs=None,
                     outputs=None,
                     queue=False,
@@ -243,6 +248,14 @@ class Script(scripts.Script):
             task_runner.execute_pending_tasks_threading()
 
         return f
+
+
+def unload_all_models_with_notification():
+    # 一鍵卸載按鈕的入口：卸載前後各提示一次，toast 顯示在瀏覽器；
+    # 終端輸出仍由 unload_all_models 內的 print_message 負責，故不加 to_print
+    notify_message(UNLOADING_ALL_MODELS, level="info")
+    unload_all_models()
+    notify_message(UNLOADED_ALL_MODELS, level="info")
 
 
 def remove_old_tasks():

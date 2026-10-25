@@ -89,10 +89,22 @@ _LOG_LEVELS = {
 }
 
 
+def with_prefix(message, *, no_prefix=False):
+    """加上 [AgentScheduler] 前綴；訊息內已含前綴或 no_prefix=True 時原樣回傳
+
+    @param message - 訊息本體（非字串會轉成字串）
+    @param no_prefix - True 時不加前綴
+    """
+    text = str(message)
+    if not no_prefix and MESSAGE_PREFIX not in text:
+        text = f"{MESSAGE_PREFIX} {text}"
+    return text
+
+
 def print_message(message, *, color=None, log_only=False, to_log=False, level="info", no_prefix=False):
     """印出一行擴充訊息，可指定終端顏色，也可只寫或同時寫入 log
 
-    @param message - 訊息本體；prefix=True 時輸出前統一加上 [AgentScheduler]
+    @param message - 訊息本體；輸出前統一加上 [AgentScheduler]
     @param color - 終端顏色名（_COLORS 的鍵），None 表示不上色；log_only 時不使用
     @param log_only - True 時只寫入 log、不印終端，讓原本只走 log 的訊息維持舊有行為
     @param to_log - True 時把同一段文字（不帶顏色）再寫入一次 log
@@ -107,10 +119,7 @@ def print_message(message, *, color=None, log_only=False, to_log=False, level="i
     if not log_only and color is not None and color not in _COLORS:
         raise ValueError(f"unknown color: {color!r}, expected one of {sorted(_COLORS)}")
 
-    message_text = str(message)
-    if not no_prefix and MESSAGE_PREFIX not in message_text:
-        message_text = f"{MESSAGE_PREFIX} {message_text}"
-    text = message_text
+    text = with_prefix(message, no_prefix=no_prefix)
 
     if not log_only:
         if color is None:

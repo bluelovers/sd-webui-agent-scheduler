@@ -36,6 +36,7 @@ from .helpers import (
 from .compat_a1111_forge.ui import get_ui_task_error_text, get_ui_task_geninfo
 from .compat_a1111_forge.infotext_labels import apply_model_texts
 from .log import print_message
+from .sd_webui.notify import notify_message
 from .task_helpers import (
     encode_image_to_base64,
     serialize_img2img_image_args,
@@ -633,11 +634,11 @@ class TaskRunner:
 
                 if not res or isinstance(res, Exception):
                     if isinstance(res, OutOfMemoryError):
-                        gr.Error(f"[AgentScheduler] Task {task_id} failed: CUDA OOM. Queue will be paused.")
+                        notify_message(f"Task {task_id} failed: CUDA OOM. Queue will be paused.", level="error")
                         print_message(f"Task {task_id} failed: CUDA OOM. Queue will be paused.", log_only=True, level="error")
                         shared.opts.queue_paused = True
                     else:
-                        gr.Error(f"[AgentScheduler] Task {task_id} failed: {res}")
+                        notify_message(f"Task {task_id} failed: {res}", level="error")
                         print_message(f"Task {task_id} failed: {res}", log_only=True, level="error")
                         print_message(traceback.format_exc(), log_only=True, level="debug")
 
@@ -715,7 +716,7 @@ class TaskRunner:
 
     def execute_pending_tasks_threading(self):
         if self.paused:
-            gr.Warning("[AgentScheduler] Runner is paused")
+            notify_message("Runner is paused", level="warning")
             print_message("Runner is paused", log_only=True, level="info")
             return
 

@@ -6,6 +6,10 @@ scripts/task_scheduler.py 匯入後綁定到該按鈕。
 
 from ..log import print_message
 
+# 卸載前後的訊息字面值：終端 print 與瀏覽器 toast（notify）共用同一份
+UNLOADING_ALL_MODELS = "Unloading all models..."
+UNLOADED_ALL_MODELS = "All models unloaded"
+
 
 def unload_all_models():
     # 匯入放在函式內：handler 只在按鈕點擊時執行，
@@ -14,6 +18,7 @@ def unload_all_models():
     from modules import devices, errors
     import gc
 
+    print_message(UNLOADING_ALL_MODELS, level="info")
     try:
         memory_management.unload_all_models()
     except Exception:
@@ -21,4 +26,4 @@ def unload_all_models():
     finally:
         devices.torch_gc()
         gc.collect()
-    print_message("All models unloaded")
+    print_message(UNLOADED_ALL_MODELS, level="info")
