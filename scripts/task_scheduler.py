@@ -18,7 +18,8 @@ from agent_scheduler.compat_a1111_forge.paste_params import (
 from agent_scheduler.compat_a1111_forge.ui import get_ui_dependencies, get_ui_fns
 
 from agent_scheduler.task_runner import TaskRunner, get_instance
-from agent_scheduler.helpers import log, compare_components_with_ids, get_components_by_ids
+from agent_scheduler.helpers import compare_components_with_ids, get_components_by_ids
+from agent_scheduler.log import print_message
 from agent_scheduler.db import init as init_db, task_manager
 from agent_scheduler.api import regsiter_apis
 # 畫面模組與共用常數：畫面只做自己的 UI，不反向 import 本檔
@@ -39,6 +40,7 @@ from agent_scheduler.sd_webui.ui_constants import (
     ui_placement_append_to_main,
     ui_placement_as_tab,
 )
+from agent_scheduler.utils.torch_helpers import unload_all_models
 
 # 全域任務執行器實例，於 on_app_started 時初始化
 task_runner: TaskRunner = None
@@ -243,23 +245,6 @@ class Script(scripts.Script):
         return f
 
 
-def unload_all_models():
-    # 匯入放在函式內：handler 只在按鈕點擊時執行，
-    # 避免載入本檔時就要求 backend 等模組存在（A1111 無 backend 套件）
-    from backend import memory_management
-    from modules import devices, errors
-    import gc
-
-    try:
-        memory_management.unload_all_models()
-    except Exception:
-        errors.report("Error releasing memory", exc_info=True)
-    finally:
-        devices.torch_gc()
-        gc.collect()
-    print("[AgentScheduler] All models unloaded")
-
-
 def remove_old_tasks():
     # delete task that are too old
     # 依設定刪除過舊的歷史任務，避免資料庫無限增長
@@ -275,7 +260,7 @@ def remove_old_tasks():
     if retention_days > 0:
         deleted_rows = task_manager.delete_tasks(before=datetime.now() - timedelta(days=retention_days))
         if deleted_rows > 0:
-            log.debug(f"[AgentScheduler] Deleted {deleted_rows} tasks older than {retention_days} days")
+            print_message(f"Deleted {deleted_rows} tasks older than {retention_days} days", log_only=True, level="debug")
 
 
 def on_ui_settings():

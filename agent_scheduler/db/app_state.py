@@ -4,6 +4,7 @@ from typing import Union
 from sqlalchemy import Column, String
 from sqlalchemy.orm import Session
 
+from ..log import print_message
 from .base import BaseTableManager, Base
 
 
@@ -52,7 +53,7 @@ class AppStateManager(BaseTableManager):
             else:
                 return None
         except Exception as e:
-            print(f"Exception getting value from database: {e}")
+            print_message(f"Exception getting value from database: {e}", level="error")
             raise e
         finally:
             session.close()
@@ -69,7 +70,7 @@ class AppStateManager(BaseTableManager):
                 session.add(result)
             session.commit()
         except Exception as e:
-            print(f"Exception setting value in database: {e}")
+            print_message(f"Exception setting value in database: {e}", level="error")
             raise e
         finally:
             session.close()
@@ -83,7 +84,7 @@ class AppStateManager(BaseTableManager):
                 session.delete(result)
                 session.commit()
         except Exception as e:
-            print(f"Exception deleting value from database: {e}")
+            print_message(f"Exception deleting value from database: {e}", level="error")
             raise e
         finally:
             session.close()

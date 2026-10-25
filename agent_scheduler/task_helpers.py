@@ -30,7 +30,8 @@ from modules.api.models import (
     StableDiffusionImg2ImgProcessingAPI,
 )
 
-from .helpers import log, get_dict_attribute
+from .helpers import get_dict_attribute
+from .log import print_message
 
 # img2img 各模式對應的圖片參數鍵名映射
 img2img_image_args_by_mode: Dict[int, List[List[str]]] = {
@@ -76,7 +77,7 @@ def load_image_from_url(url: str):
         buffer = io.BytesIO(response.content)
         return Image.open(buffer)
     except Exception as e:
-        log.error(f"[AgentScheduler] Error downloading image from url: {e}")
+        print_message(f"Error downloading image from url: {e}", log_only=True, level="error")
         return None
 
 
@@ -174,7 +175,7 @@ def deserialize_image(image_str):
             # warn if required fields are missing
             # 缺少 dtype 時給預設值並記錄警告，避免崩潰
             if image_str.get("dtype", None) is None:
-                log.warning(f"Missing dtype for ndarray")
+                print_message(f"Missing dtype for ndarray", log_only=True, level="warning")
             shape = tuple(image_str["shape"])
             dtype = np.dtype(image_str.get("dtype", "uint8"))
             image = np.frombuffer(data, dtype=dtype)
@@ -183,7 +184,7 @@ def deserialize_image(image_str):
         elif cls == "Tensor":
             # 缺少 device 時回退至 cpu 並記錄警告
             if image_str.get("device", None) is None:
-                log.warning(f"Missing device for Tensor")
+                print_message(f"Missing device for Tensor", log_only=True, level="warning")
             shape = tuple(image_str["shape"])
             dtype = np.dtype(image_str.get("dtype", "uint8"))
             image_np = np.frombuffer(data, dtype=dtype)
@@ -324,7 +325,7 @@ def deserialize_script_args(script_args: Union[bytes, List], UiControlNetUnit = 
                         # 檢查 v 是否為合法的 Enum 值，避免無效資料導致重建失敗
                         enum_obj: Enum= getattr(u, k)
                         if v not in [e.value for e in enum_obj.__class__]:
-                            log.error(f"Invalid enum value {v} for {k} encountered, valid value is {enum_obj.__class__}")
+                            print_message(f"Invalid enum value {v} for {k} encountered, valid value is {enum_obj.__class__}", log_only=True, level="error")
                             skip_controlnet = True
                             break
                         # 將合法值轉回對應 Enum 型別
@@ -404,7 +405,7 @@ def map_ui_task_args_list_to_named_args(args: List, is_img2img: bool):
         available_samplers = sd_samplers.samplers_for_img2img if is_img2img else sd_samplers.samplers
         sampler_name = available_samplers[named_args["sampler_index"]].name
         named_args["sampler_name"] = sampler_name
-        log.debug(f"serialize sampler index: {str(sampler_index)} as {sampler_name}")
+        print_message(f"serialize sampler index: {str(sampler_index)} as {sampler_name}", log_only=True, level="debug")
 
     return (
         named_args,
@@ -661,7 +662,7 @@ def apply_checkpoint_override(named_args: Dict, checkpoint: str):
             override["sd_model_checkpoint"] = title
         else:
             # 解析失敗：連同先前烘焙的 checkpoint 一併移除，退回系統模型
-            log.warning(f"Checkpoint {checkpoint} not found, use current system model")
+            print_message(f"Checkpoint {checkpoint} not found, use current system model", log_only=True, level="warning")
             override.pop("sd_model_checkpoint", None)
     else:
         # System：移除先前烘焙的 checkpoint，改用系統當前模型
@@ -713,7 +714,7 @@ def serialize_api_task_args(
 
         # 過濾不存在於允許清單的腳本，避免傳入無效名稱
         if script_name.lower() not in allowed_alwayson_scripts:
-            log.warning(f"Script {script_name} is not in script_runner.alwayson_scripts")
+            print_message(f"Script {script_name} is not in script_runner.alwayson_scripts", log_only=True, level="warning")
             continue
 
         script = allowed_alwayson_scripts[script_name.lower()]
@@ -737,14 +738,14 @@ def serialize_api_task_args(
     if checkpoint is not None:
         title = resolve_checkpoint_title(checkpoint)
         if not title:
-            log.warning(f"Checkpoint {checkpoint} not found, use current system model")
+            print_message(f"Checkpoint {checkpoint} not found, use current system model", log_only=True, level="warning")
         else:
             args.override_settings["sd_model_checkpoint"] = title
 
     # 若有指定 VAE，則加入 override（找不到時退回系統 VAE）/ Apply VAE override, falling back to system VAE if not found.
     if vae is not None:
         if vae not in sd_vae.vae_dict:
-            log.warning(f"VAE {vae} not found, use current system vae")
+            print_message(f"VAE {vae} not found, use current system vae", log_only=True, level="warning")
         else:
             args.override_settings["sd_vae"] = vae
 

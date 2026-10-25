@@ -29,7 +29,7 @@ is_macos = platform.system() == "Darwin"
 # The logging setup lives in its own module (standard library only, no gradio), so
 # task_output / shared_opts_backup and their unit tests do not need gradio merely to
 # obtain a logger. This is the very same logger instance as before.
-from .log import log
+from .log import print_message
 
 
 class Singleton(abc.ABCMeta, type):
@@ -210,14 +210,14 @@ def request_with_retry(
         return True
     # 連線錯誤時依剩餘次數重試，超過上限則放棄
     except requests.exceptions.ConnectionError:
-        log.error("[ArtVenture] Connection error while uploading result")
+        print_message("[ArtVenture] Connection error while uploading result", log_only=True, level="error")
         # 已達最大重試次數則結束並回傳失敗
         if retries >= max_try - 1:
             return False
 
         # 等待後遞迴重試，次數加一
         time.sleep(1)
-        log.info(f"[ArtVenture] Retrying {retries + 1}...")
+        print_message(f"[ArtVenture] Retrying {retries + 1}...", log_only=True, level="info")
         return request_with_retry(
             make_request,
             max_try=max_try,
@@ -225,9 +225,9 @@ def request_with_retry(
         )
     # 其他例外一律記錄並回傳失敗，不中斷排程
     except Exception as e:
-        log.error("[ArtVenture] Error while uploading result")
-        log.error(e)
-        log.debug(traceback.format_exc())
+        print_message("[ArtVenture] Error while uploading result", log_only=True, level="error")
+        print_message(e, log_only=True, level="error")
+        print_message(traceback.format_exc(), log_only=True, level="debug")
         return False
 
 

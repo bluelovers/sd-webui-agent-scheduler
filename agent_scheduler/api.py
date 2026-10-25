@@ -40,7 +40,8 @@ from .models import (
     UpdateTaskArgs,
 )
 from .task_runner import TaskRunner
-from .helpers import log, request_with_retry
+from .helpers import request_with_retry
+from .log import print_message
 from .task_helpers import (
     encode_image_to_base64,
     img2img_image_args_by_mode,
@@ -123,7 +124,7 @@ def regsiter_apis(app: App, task_runner: TaskRunner):
 
         deps = [Depends(auth)]
 
-    log.info("[AgentScheduler] Registering APIs")
+    print_message("Registering APIs", log_only=True, level="info")
 
     @app.get("/agent-scheduler/v1/samplers", response_model=List[str])
     def get_samplers():
@@ -263,7 +264,7 @@ def regsiter_apis(app: App, task_runner: TaskRunner):
             return {"success": True, "message": "Queue imported"}
         # 解析或寫入失敗時回傳失敗訊息
         except Exception as e:
-            print(e)
+            print_message(e, level="error")
             return {"success": False, "message": "Import Failed"}
 
     @app.get("/agent-scheduler/v1/history", response_model=HistoryResponse, dependencies=deps)

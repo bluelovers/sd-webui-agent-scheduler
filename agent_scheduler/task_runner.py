@@ -26,7 +26,6 @@ from modules.devices import torch_gc
 
 from .db import TaskStatus, Task, task_manager
 from .helpers import (
-    log,
     detect_control_net,
     get_component_by_elem_id,
     get_dict_attribute,
@@ -36,6 +35,7 @@ from .helpers import (
 )
 from .compat_a1111_forge.ui import get_ui_task_error_text, get_ui_task_geninfo
 from .compat_a1111_forge.infotext_labels import apply_model_texts
+from .log import print_message
 from .task_helpers import (
     encode_image_to_base64,
     serialize_img2img_image_args,
@@ -197,7 +197,7 @@ class TaskRunner:
                 # 與輸入不同才輸出差異，供終端直接確認雙寫是否生效
                 removed = [x for x in old_texts if x not in new_texts]
                 added = [x for x in new_texts if x not in old_texts]
-                print(f"[AgentScheduler] [texts] removed={removed}; added={added}")
+                print_message(f"[texts] removed={removed}; added={added}")
             named_args["override_settings_texts"] = new_texts
 
         # Apply VAE override
@@ -328,7 +328,7 @@ class TaskRunner:
         vae_display = sent_vae if sent_vae is not None else "(not overridden)"
 
         line = (
-            f"[AgentScheduler] Task {task.id} execute ({'ui' if is_ui else 'api'}): "
+            f"Task {task.id} execute ({'ui' if is_ui else 'api'}): "
             f"checkpoint stored={checkpoint}, sent={checkpoint_display}; "
             f"vae stored={vae}, sent={vae_display}"
         )
@@ -337,7 +337,7 @@ class TaskRunner:
             sent_vae is not None and sent_vae != vae
         )
         # 顏色慣例同 shared_opts_backup.py 的 [change]：變動整行綠色，否則原色
-        print(f"\33[32m{line}\33[0m" if changed else line)
+        print_message(line, color="green" if changed else None)
 
     def __log_paused_enqueue(self, task: Task):
         """暫停狀態下新增任務的終端提示，附前方排隊數量
@@ -349,7 +349,7 @@ class TaskRunner:
             ahead = f"{position} task(s) ahead in queue"
         except Exception:
             ahead = "waiting in queue"
-        print(f"[AgentScheduler] Queue is paused: task {task.id} added, {ahead}")
+        print_message(f"Queue is paused: task {task.id} added, {ahead}")
 
     def register_ui_task(
         self,
@@ -435,7 +435,7 @@ class TaskRunner:
                 task_id = task.id
                 is_img2img = task.type == "img2img"
                 # gr.Error(f"[AgentScheduler] Executing task {task_id}")
-                log.info(f"[AgentScheduler] Executing task {task_id}")
+                print_message(f"Executing task {task_id}", log_only=True, level="info")
 
                 task_args = self.parse_task_args(task)
                 task_meta = {
@@ -634,15 +634,15 @@ class TaskRunner:
                 if not res or isinstance(res, Exception):
                     if isinstance(res, OutOfMemoryError):
                         gr.Error(f"[AgentScheduler] Task {task_id} failed: CUDA OOM. Queue will be paused.")
-                        log.error(f"[AgentScheduler] Task {task_id} failed: CUDA OOM. Queue will be paused.")
+                        print_message(f"Task {task_id} failed: CUDA OOM. Queue will be paused.", log_only=True, level="error")
                         shared.opts.queue_paused = True
                     else:
                         gr.Error(f"[AgentScheduler] Task {task_id} failed: {res}")
-                        log.error(f"[AgentScheduler] Task {task_id} failed: {res}")
-                        log.debug(traceback.format_exc())
+                        print_message(f"Task {task_id} failed: {res}", log_only=True, level="error")
+                        print_message(traceback.format_exc(), log_only=True, level="debug")
 
                     if getattr(shared.opts, "queue_automatic_requeue_failed_task", False):
-                        log.info(f"[AgentScheduler] Requeue task {task_id}")
+                        print_message(f"Requeue task {task_id}", log_only=True, level="info")
                         task.status = TaskStatus.PENDING
                         task.priority = int(datetime.now(timezone.utc).timestamp() * 1000)
                         task_manager.update_task(task)
@@ -654,7 +654,7 @@ class TaskRunner:
                 else:
                     is_interrupted = self.interrupted == task_id
                     if is_interrupted:
-                        log.info(f"\n[AgentScheduler] Task {task.id} interrupted")
+                        print_message(f"\n[AgentScheduler] Task {task.id} interrupted", log_only=True, level="info")
                         task.status = TaskStatus.INTERRUPTED
                         task_manager.update_task(task)
                         self.__run_callbacks(
@@ -716,12 +716,12 @@ class TaskRunner:
     def execute_pending_tasks_threading(self):
         if self.paused:
             gr.Warning("[AgentScheduler] Runner is paused")
-            log.info("[AgentScheduler] Runner is paused")
+            print_message("Runner is paused", log_only=True, level="info")
             return
 
         if self.is_executing_task:
             # gr.Warning("[AgentScheduler] Runner already started")
-            log.info("[AgentScheduler] Runner already started")
+            print_message("Runner already started", log_only=True, level="info")
             return
 
         pending_task = self.__get_pending_task()
@@ -817,7 +817,7 @@ class TaskRunner:
             return None
 
         if self.paused:
-            log.info("[AgentScheduler] Runner is paused")
+            print_message("Runner is paused", log_only=True, level="info")
             return None
 
         # # delete task that are too old
@@ -837,12 +837,12 @@ class TaskRunner:
 
         # get more task if needed
         if self.__total_pending_tasks > 0:
-            log.info(f"[AgentScheduler] Total pending tasks: {self.__total_pending_tasks}")
+            print_message(f"Total pending tasks: {self.__total_pending_tasks}", log_only=True, level="info")
             pending_tasks = task_manager.get_tasks(status="pending", limit=1)
             if len(pending_tasks) > 0:
                 return pending_tasks[0]
         else:
-            log.info("[AgentScheduler] Task queue is empty")
+            print_message("Task queue is empty", log_only=True, level="info")
             self.__run_callbacks("task_cleared")
 
     def __on_image_saved(self, data: script_callbacks.ImageSaveParams):
@@ -863,7 +863,7 @@ class TaskRunner:
 
         command = None
         if action == "Shut down":
-            log.info("[AgentScheduler] Shutting down...")
+            print_message("Shutting down...", log_only=True, level="info")
             if is_windows:
                 command = ["shutdown", "/s", "/hybrid", "/t", "0"]
             elif is_macos:
@@ -871,7 +871,7 @@ class TaskRunner:
             else:
                 command = ["systemctl", "poweroff"]
         elif action == "Restart":
-            log.info("[AgentScheduler] Restarting...")
+            print_message("Restarting...", log_only=True, level="info")
             if is_windows:
                 command = ["shutdown", "/r", "/t", "0"]
             elif is_macos:
@@ -879,16 +879,16 @@ class TaskRunner:
             else:
                 command = ["systemctl", "reboot"]
         elif action == "Sleep":
-            log.info("[AgentScheduler] Sleeping...")
+            print_message("Sleeping...", log_only=True, level="info")
             if is_windows:
                 if not ctypes.windll.PowrProf.SetSuspendState(False, False, False):
-                    print(f"Couldn't sleep: {ctypes.GetLastError()}")
+                    print_message(f"Couldn't sleep: {ctypes.GetLastError()}", level="error")
             elif is_macos:
                 command = ["osascript", "-e", 'tell application "Finder" to sleep']
             else:
                 command = ["sh", "-c", 'systemctl hybrid-sleep || (echo "Couldn\'t hybrid sleep, will try to suspend instead: $?"; systemctl suspend)']
         elif action == "Hibernate":
-            log.info("[AgentScheduler] Hibernating...")
+            print_message("Hibernating...", log_only=True, level="info")
             if is_windows:
                 command = ["shutdown", "/h"]
             elif is_macos:
@@ -896,10 +896,10 @@ class TaskRunner:
             else:
                 command = ["systemctl", "hibernate"]
         elif action == "Stop webui":
-            log.info("[AgentScheduler] Stopping webui...")
+            print_message("Stopping webui...", log_only=True, level="info")
             _exit(0)
         elif action == "Restart webui":
-            log.info("[AgentScheduler] Restarting webui...")
+            print_message("Restarting webui...", log_only=True, level="info")
             with self.__block:
                 gr.HTML("""
     <script type="text/javascript">
@@ -959,11 +959,11 @@ class TaskRunner:
             callback(*args, **kwargs)
 
         if name == "task_finished" or name == "task_started":
-            print(f"[AgentScheduler] {name} torch_gc...")
+            print_message(f"{name} torch_gc...")
             try:
                 torch_gc()
             except Exception as e:
-                print(e)
+                print_message(e, level="error")
 
 
 def get_instance(block) -> TaskRunner:
@@ -976,10 +976,12 @@ def get_instance(block) -> TaskRunner:
             TaskRunner()
 
         if not hasattr(script_callbacks, "on_before_reload"):
-            log.warning(
+            print_message(
                 "*****************************************************************************************\n"
                 + "[AgentScheduler] YOUR SD WEBUI IS OUTDATED AND AGENT SCHEDULER WILL NOT WORKING PROPERLY."
                 + "*****************************************************************************************\n",
+                log_only=True,
+                level="warning",
             )
         else:
 

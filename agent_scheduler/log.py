@@ -1,23 +1,13 @@
 """
-log.py — Agent Scheduler 的日誌設定（純標準庫，不相依 gradio）/ Logging setup for
-the Agent Scheduler (standard library only, deliberately free of gradio).
+log.py — Agent Scheduler 的日誌設定（純標準庫，不相依 gradio）
 
 為什麼獨立成檔
-日誌是「檔案系統維護類」模組（task_output、shared_opts_backup）與單元測試都需要的
-最基礎能力。原本放在 helpers.py，會迫使這些模組連帶 import gradio，導致單元測試必須
-在已安裝 webui 的環境下才跑得起來。抽出後只需標準庫即可使用同一個 logger，單元測試
-也能在任何 Python 解釋器下執行（見 tests/README.md）。
-Logging is the most basic capability needed by the filesystem-maintenance modules
-(task_output, shared_opts_backup) and by the unit tests. Sitting inside helpers.py it
-forced them to pull in gradio, which meant the unit tests only ran inside a full webui
-environment. With the logic extracted here the very same logger is available from the
-standard library alone, so the unit tests run under any Python (see tests/README.md).
+日誌是「檔案系統維護類」模組（task_output、shared_opts_backup）與單元測試都需要的最基礎能力。
+原本放在 helpers.py，會迫使這些模組連帶 import gradio，
+導致單元測試必須在已安裝 webui 的環境下才跑得起來。
+抽出後只需標準庫即可使用同一個 logger，單元測試也能在任何 Python 解釋器下執行（見 tests/README.md）。
 
-注意
-其他模組仍可從 helpers 匯入 log（helpers 由本檔取得同一個 logger 物件），
-兩者永遠是同一個實例、行為一致。
-Other modules may keep importing log from helpers: helpers obtains the same object
-from this module, so both names always refer to one identical instance.
+print_message — 擴充的 print / log 統一入口
 """
 
 import sys
@@ -72,3 +62,61 @@ else:
     logger.setLevel(loglevel)
 
     log = logger
+
+# 終端輸出的統一前綴：擴充的 print 都由 print_message 加上，字面值只存這一處
+MESSAGE_PREFIX = "[AgentScheduler]"
+
+# print_message 可指定的顏色名 → ANSI 序列；只包住終端輸出，寫入 log 的文字保持無色
+_COLORS = {
+    "black": "\033[30m",
+    "red": "\033[31m",
+    "green": "\033[32m",
+    "yellow": "\033[33m",
+    "blue": "\033[34m",
+    "magenta": "\033[35m",
+    "cyan": "\033[36m",
+    "white": "\033[37m",
+}
+_RESET = "\033[0m"
+
+# to_log 時的等級名稱 → logging 等級
+_LOG_LEVELS = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+    "critical": logging.CRITICAL,
+}
+
+
+def print_message(message, *, color=None, log_only=False, to_log=False, level="info", no_prefix=False):
+    """印出一行擴充訊息，可指定終端顏色，也可只寫或同時寫入 log
+
+    @param message - 訊息本體；prefix=True 時輸出前統一加上 [AgentScheduler]
+    @param color - 終端顏色名（_COLORS 的鍵），None 表示不上色；log_only 時不使用
+    @param log_only - True 時只寫入 log、不印終端，讓原本只走 log 的訊息維持舊有行為
+    @param to_log - True 時把同一段文字（不帶顏色）再寫入一次 log
+    @param level - 這則訊息的等級名（_LOG_LEVELS 的鍵）：to_log / log_only 寫入 log 時
+        依此決定等級；未寫入 log 時仍保留呼叫端宣告的等級，方便之後開啟 log 輸出
+    @param no_prefix - True 時不加前綴
+    """
+    write_log = log_only or to_log
+
+    if level not in _LOG_LEVELS:
+        raise ValueError(f"unknown level: {level!r}, expected one of {sorted(_LOG_LEVELS)}")
+    if not log_only and color is not None and color not in _COLORS:
+        raise ValueError(f"unknown color: {color!r}, expected one of {sorted(_COLORS)}")
+
+    message_text = str(message)
+    if not no_prefix and MESSAGE_PREFIX not in message_text:
+        message_text = f"{MESSAGE_PREFIX} {message_text}"
+    text = message_text
+
+    if not log_only:
+        if color is None:
+            print(text)
+        else:
+            print(f"{_COLORS[color]}{text}{_RESET}")
+
+    if write_log:
+        log.log(_LOG_LEVELS[level], text)

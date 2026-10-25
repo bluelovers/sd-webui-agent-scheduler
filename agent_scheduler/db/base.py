@@ -6,6 +6,7 @@ from sqlalchemy.orm import declarative_base
 
 from modules import scripts
 from modules import shared
+from ..log import print_message
 
 if hasattr(shared.cmd_opts, "agent_scheduler_sqlite_file"):
     # 若使用者指定了 sqlite 檔案路徑，優先採用
@@ -20,7 +21,7 @@ else:
     # 未指定時回退至預設檔名，保持向後相容
     db_file = os.path.join(scripts.basedir(), "task_scheduler.sqlite3")
 
-print(f"Using sqlite file: {db_file}")
+print_message(f"Using sqlite file: {db_file}")
 
 
 Base = declarative_base()
@@ -35,7 +36,7 @@ class BaseTableManager:
         try:
             self.engine = engine if engine else create_engine(f"sqlite:///{db_file}")
         except Exception as e:
-            print(f"Exception connecting to database: {e}")
+            print_message(f"Exception connecting to database: {e}", level="error")
             raise e
 
     def get_engine(self):

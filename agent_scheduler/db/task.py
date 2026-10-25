@@ -18,6 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session
 
+from ..log import print_message
 from .base import BaseTableManager, Base
 from ..models import TaskModel
 from pydantic import Field
@@ -184,7 +185,7 @@ class TaskManager(BaseTableManager):
             # 命中則轉為業務模型，否則回傳 None
             return Task.from_table(task) if task else None
         except Exception as e:
-            print(f"Exception getting task from database: {e}")
+            print_message(f"Exception getting task from database: {e}", level="error")
             raise e
         finally:
             session.close()
@@ -204,7 +205,7 @@ class TaskManager(BaseTableManager):
             else:
                 raise Exception(f"Task with id {id} not found")
         except Exception as e:
-            print(f"Exception getting task position from database: {e}")
+            print_message(f"Exception getting task position from database: {e}", level="error")
             raise e
         finally:
             session.close()
@@ -258,7 +259,7 @@ class TaskManager(BaseTableManager):
             # 批次轉換為業務模型回傳
             return [Task.from_table(t) for t in all]
         except Exception as e:
-            print(f"Exception getting tasks from database: {e}")
+            print_message(f"Exception getting tasks from database: {e}", level="error")
             raise e
         finally:
             session.close()
@@ -287,7 +288,7 @@ class TaskManager(BaseTableManager):
 
             return query.count()
         except Exception as e:
-            print(f"Exception counting tasks from database: {e}")
+            print_message(f"Exception counting tasks from database: {e}", level="error")
             raise e
         finally:
             session.close()
@@ -300,7 +301,7 @@ class TaskManager(BaseTableManager):
             session.commit()
             return task
         except Exception as e:
-            print(f"Exception adding task to database: {e}")
+            print_message(f"Exception adding task to database: {e}", level="error")
             raise e
         finally:
             session.close()
@@ -319,7 +320,7 @@ class TaskManager(BaseTableManager):
             return task
 
         except Exception as e:
-            print(f"Exception updating task in database: {e}")
+            print_message(f"Exception updating task in database: {e}", level="error")
             raise e
         finally:
             session.close()
@@ -350,7 +351,7 @@ class TaskManager(BaseTableManager):
             else:
                 raise Exception(f"Task with id {id} not found")
         except Exception as e:
-            print(f"Exception updating task in database: {e}")
+            print_message(f"Exception updating task in database: {e}", level="error")
             raise e
         finally:
             session.close()
@@ -366,7 +367,7 @@ class TaskManager(BaseTableManager):
             else:
                 raise Exception(f"Task with id {id} not found")
         except Exception as e:
-            print(f"Exception deleting task from database: {e}")
+            print_message(f"Exception deleting task from database: {e}", level="error")
             raise e
         finally:
             session.close()
@@ -403,7 +404,7 @@ class TaskManager(BaseTableManager):
 
             return deleted_rows
         except Exception as e:
-            print(f"Exception deleting tasks from database: {e}")
+            print_message(f"Exception deleting tasks from database: {e}", level="error")
             raise e
         finally:
             session.close()
@@ -420,7 +421,7 @@ class TaskManager(BaseTableManager):
             # 無資料時視為 0，確保新優先權為負數也能排在最前
             return min_priority if min_priority else 0
         except Exception as e:
-            print(f"Exception getting min priority from database: {e}")
+            print_message(f"Exception getting min priority from database: {e}", level="error")
             raise e
         finally:
             session.close()
@@ -434,7 +435,7 @@ class TaskManager(BaseTableManager):
             )
             session.commit()
         except Exception as e:
-            print(f"Exception moving tasks down in database: {e}")
+            print_message(f"Exception moving tasks down in database: {e}", level="error")
             raise e
         finally:
             session.close()

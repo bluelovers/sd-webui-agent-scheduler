@@ -3,7 +3,7 @@ import json
 from datetime import datetime, timezone
 from typing import Optional, Union
 
-from .log import log
+from .log import print_message
 from .task_output import repair_stale_outdir
 
 
@@ -141,10 +141,10 @@ class SharedOptsBackup:
                 # Keep the original type and string style (paths in shared.opts are
                 # stored as posix strings).
                 old = repaired.as_posix() if isinstance(old, str) else repaired
-                print(f"[AgentScheduler] [repair] {key}: {getattr(self.shared_opts, key, None)} -> {old}")
+                print_message(f"[repair] {key}: {getattr(self.shared_opts, key, None)} -> {old}")
 
             self.backup[key] = old
-            print(f"[AgentScheduler] [backup] {key}: {old}")
+            print_message(f"[backup] {key}: {old}")
 
         # 路徑型值：依序做文字正規化、junction 展開、絕對化、POSIX 正斜線化
         # Path-like values: textual simplify -> junction resolve -> absolute ->
@@ -164,7 +164,7 @@ class SharedOptsBackup:
         # Write into shared.opts; only log a change when it differs from the backup.
         self.shared_opts.set(key, value)
         if self.backup[key] != value:
-            print(f"\33[32m[AgentScheduler] [change] {key}: {value}\33[0m")
+            print_message(f"[change] {key}: {value}", color="green")
 
         # 回傳最終（可能已展開的）值，方便呼叫端直接拿去做 makedirs 等後續操作
         # Return the final (possibly expanded) value so callers can directly use it
@@ -246,7 +246,7 @@ class SharedOptsBackup:
             # 同日檔案已存在：保留當日第一次寫入的快照，不覆寫
             # Already exists for today: keep the first snapshot of the day, no overwrite.
             if target.exists():
-                print(f"[AgentScheduler] [backup-skip] {target.as_posix()} (already exists, not overwritten)")
+                print_message(f"[backup-skip] {target.as_posix()} (already exists, not overwritten)")
                 return None
 
             payload = {
@@ -267,12 +267,12 @@ class SharedOptsBackup:
             with open(target, "w", encoding="utf-8") as f:
                 json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
 
-            print(f"[AgentScheduler] [backup-file] {target.as_posix()} ({len(self.backup)} keys)")
+            print_message(f"[backup-file] {target.as_posix()} ({len(self.backup)} keys)")
             return target
         except Exception as e:
             # 備份失敗只記錄、不向上拋出，避免中斷任務執行
             # Backup failure is logged and swallowed so the task is never aborted by it.
-            log.warning(f"[AgentScheduler] 寫入設定備份檔失敗: {e}")
+            print_message(f"寫入設定備份檔失敗: {e}", log_only=True, level="warning")
             return None
 
     def restore_shared_opts(self):
@@ -285,6 +285,6 @@ class SharedOptsBackup:
         # Restore each key and log it; unchanged keys restore to the same value.
         for attr, value in self.backup.items():
             self.shared_opts.set(attr, value)
-            print(f"\33[32m[AgentScheduler] [restore] {attr}: {value}\33[0m")
+            print_message(f"[restore] {attr}: {value}", color="green")
 
         # gr.Info(f"[AgentScheduler] restore shared opts")

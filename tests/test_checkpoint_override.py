@@ -188,11 +188,12 @@ class ApplyCheckpointOverrideTests(unittest.TestCase):
         with mock.patch.object(
             task_helpers, "get_closet_checkpoint_match", return_value=None
         ):
-            with mock.patch.object(task_helpers, "log") as fake_log:
+            with mock.patch.object(task_helpers, "print_message") as fake_print:
                 task_helpers.apply_checkpoint_override(named_args, "gone-model")
         self.assertNotIn("sd_model_checkpoint", named_args["override_settings"])
-        fake_log.warning.assert_called_once()
-        self.assertIn("gone-model", fake_log.warning.call_args[0][0])
+        fake_print.assert_called_once()
+        self.assertIn("gone-model", fake_print.call_args[0][0])
+        self.assertEqual(fake_print.call_args.kwargs.get("level"), "warning")
 
     def test_non_dict_override_settings_is_normalized(self):
         named_args = {"override_settings": "corrupted"}

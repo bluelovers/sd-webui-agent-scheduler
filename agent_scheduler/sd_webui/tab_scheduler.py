@@ -22,7 +22,7 @@ from agent_scheduler.compat_a1111_forge.paste_params import (
 )
 from agent_scheduler.compat_a1111_forge.ui_components import ToolButton
 from agent_scheduler.db import task_manager, TaskStatus
-from agent_scheduler.helpers import log
+from agent_scheduler.log import print_message
 from agent_scheduler.sd_webui.ui_constants import (
     agent_scheduler_id,
     agent_scheduler_title,
@@ -124,8 +124,8 @@ def get_task_results(task_id: str, image_idx: int = None):
                 infotext = infotexts[idx]
         # 解析失敗時回報錯誤而不中斷整個 UI
         except Exception as e:
-            log.error(f"[AgentScheduler] Failed to load task result")
-            log.error(e)
+            print_message(f"Failed to load task result", log_only=True, level="error")
+            print_message(e, log_only=True, level="error")
             infotext = f"Failed to load task result: {str(e)}"
 
     res = (

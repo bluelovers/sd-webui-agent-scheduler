@@ -37,7 +37,7 @@ from typing import Any, List, Optional, Tuple, Union
 # Take the logger from the standalone log module (standard library only) so this
 # module imports without gradio / webui, which is what lets the unit tests run under
 # any Python interpreter.
-from .log import log
+from .log import print_message
 
 # 任務狀態文字常數，與 db.TaskStatus 的值一致。
 # 刻意不 import .db：本模組只做檔案系統維護，避免引入資料庫（及其上游 modules.*）相依，
@@ -196,19 +196,15 @@ def resolve_samples_base(samples_base: Union[Path, str]) -> Path:
 
     repaired = repair_stale_outdir(base)
     if repaired is not None:
-        log.warning(
-            "[AgentScheduler] 上次任務中斷殘留巢狀輸出路徑，已修復 / "
+        print_message("上次任務中斷殘留巢狀輸出路徑，已修復 / "
             "stale nested output path left by an interrupted task, repaired: "
-            f"{base.as_posix()} -> {repaired.as_posix()}"
-        )
+            f"{base.as_posix()} -> {repaired.as_posix()}", log_only=True, level="warning")
         return repaired
 
     if find_scheduler_prefix(base) is not None:
-        log.warning(
-            "[AgentScheduler] 殘留路徑的原始目錄名不可考，交由根目錄守門處理 / "
+        print_message("殘留路徑的原始目錄名不可考，交由根目錄守門處理 / "
             "original directory name of the leftover path is unknown, deferring to the "
-            f"root guard: {base.as_posix()}"
-        )
+            f"root guard: {base.as_posix()}", log_only=True, level="warning")
 
     return base
 
@@ -279,7 +275,7 @@ def remove_empty_subdirs(root: Union[Path, str]) -> None:
             return
         children = list(root_path.iterdir())
     except OSError as e:
-        log.debug(f"[AgentScheduler] 無法列舉目錄 {root}: {e}")
+        print_message(f"無法列舉目錄 {root}: {e}", log_only=True, level="debug")
         return
 
     # 先處理子層再刪自己，才能把最深的空目錄先清掉
@@ -290,10 +286,10 @@ def remove_empty_subdirs(root: Union[Path, str]) -> None:
                 continue
             remove_empty_subdirs(child)
             child.rmdir()
-            log.debug(f"[AgentScheduler] 已刪除空資料夾 {child}")
+            print_message(f"已刪除空資料夾 {child}", log_only=True, level="debug")
         except OSError as e:
             # 非空、無權限或被占用：保留原狀即可
-            log.debug(f"[AgentScheduler] 略過目錄 {child}: {e}")
+            print_message(f"略過目錄 {child}: {e}", log_only=True, level="debug")
 
 
 def _is_dir_empty(path: Path) -> bool:
@@ -492,10 +488,10 @@ def _write_cleanup_report(
     try:
         with open(report_path, "w", encoding="utf-8") as f:
             f.write(content)
-        log.info(f"[AgentScheduler] 已寫入空資料夾報告: {report_path}")
+        print_message(f"已寫入空資料夾報告: {report_path}", log_only=True, level="info")
         return report_path
     except Exception as e:
-        log.warning(f"[AgentScheduler] 無法寫入空資料夾報告: {e}")
+        print_message(f"無法寫入空資料夾報告: {e}", log_only=True, level="warning")
         return None
 
 
@@ -544,7 +540,7 @@ def cleanup_task_output_dir(
         # by mistake, skip it entirely, so cleanup can never remove the day folder
         # that holds the .txt reports.
         if DAY_FOLDER_PATTERN.match(task_dir_path.name) or task_dir_path.name == OUTPUT_ROOT_NAME:
-            log.debug(f"[AgentScheduler] 略過非任務資料夾: {task_dir_path}")
+            print_message(f"略過非任務資料夾: {task_dir_path}", log_only=True, level="debug")
             return
 
         remove_empty_subdirs(task_dir_path)
@@ -571,12 +567,12 @@ def cleanup_task_output_dir(
         try:
             task_dir_path.rmdir()
             deleted = True
-            log.info(f"[AgentScheduler] 已刪除空任務資料夾 {task_dir_path}")
+            print_message(f"已刪除空任務資料夾 {task_dir_path}", log_only=True, level="info")
         except OSError as e:
             # 常見於無權限或資料夾被占用；保留原狀並寫進報告
             # locking related; keep the folder and record this in the report.
             delete_error = str(e)
-            log.warning(f"[AgentScheduler] 無法刪除任務資料夾 {task_dir_path}: {e}")
+            print_message(f"無法刪除任務資料夾 {task_dir_path}: {e}", log_only=True, level="warning")
 
         _write_cleanup_report(
             task_dir_path,
@@ -591,4 +587,4 @@ def cleanup_task_output_dir(
     except Exception as e:
         # 兜底捕捉：清理永遠不應讓排程執行緒崩潰
         # crash the runner thread.
-        log.warning(f"[AgentScheduler] 清理任務資料夾失敗 {task_dir}: {e}")
+        print_message(f"清理任務資料夾失敗 {task_dir}: {e}", log_only=True, level="warning")
