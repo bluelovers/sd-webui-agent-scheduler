@@ -24,7 +24,7 @@ from agent_scheduler.compat_a1111_forge.prompt_box_style import (
     is_compact_prompt_box,
 )
 from agent_scheduler.compat_a1111_forge.ui_components import ToolButton
-from agent_scheduler.enqueue_placement import resolve_enqueue_mount_point
+from agent_scheduler.sd_webui.enqueue_placement import resolve_enqueue_mount_point
 from agent_scheduler.sd_webui.ui_constants import (
     checkpoint_current,
     checkpoint_runtime,
