@@ -67,7 +67,8 @@ agent_scheduler/compat_a1111_forge/
 ├── infotext.py        # parse_generation_parameters
 ├── paste_params.py    # ParamBinding 等 paste 按鈕符號、create_override_settings_dict
 ├── prompt_box_style.py # supports_prompt_box_style / is_compact_prompt_box / is_compact_layout（prompt 版面偵測）
-└── ui.py              # get_ui_dependencies、get_ui_fns（gradio 3.x / 4.x 相容）
+├── ui.py              # get_ui_dependencies、get_ui_fns（gradio 3.x / 4.x 相容）
+└── ui_components.py   # ui 元件
 ```
 
 ### 核心原則

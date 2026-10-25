@@ -1,87 +1,47 @@
-"""任務排程器腳本
+"""任務排程器腳本（入口）
 
-將 Agent Scheduler 的佇列功能掛載到 sd-webui 的 txt2img / img2img UI，
-並負責註冊排程相關的 UI 元件、設定項目與 app 啟動邏輯。
-Mounts the Agent Scheduler queue into the sd-webui txt2img/img2img UI and
-registers scheduler-related UI components, settings, and app-started hooks.
+排程器的入口點：宣告 sd-webui 的 Script（事件綁定與任務註冊）、註冊設定項目與 app 啟動鉤子。
 """
 
-import os
-import json
 import gradio as gr
-from PIL import Image
 from uuid import uuid4
 from typing import List
-from collections import defaultdict
 from datetime import datetime, timedelta
 
-from modules import call_queue, shared, script_callbacks, scripts, ui_components
-from modules.shared import list_checkpoint_tiles, refresh_checkpoints
-from modules.cmd_args import parser
-from modules.ui import create_refresh_button
-from modules.ui_common import save_files
+from modules import shared, script_callbacks, scripts
+from modules.shared import list_checkpoint_tiles
 from modules.sd_models import model_path
-from agent_scheduler.compat_a1111_forge.infotext import parse_generation_parameters
 from agent_scheduler.compat_a1111_forge.paste_params import (
-    ParamBinding,
     connect_paste_params_buttons,
-    register_paste_params_button,
     registered_param_bindings,
-)
-from agent_scheduler.compat_a1111_forge.prompt_box_style import (
-    is_compact_layout,
-    is_compact_prompt_box,
 )
 from agent_scheduler.compat_a1111_forge.ui import get_ui_dependencies, get_ui_fns
 
-from agent_scheduler.enqueue_placement import resolve_enqueue_mount_point
-
 from agent_scheduler.task_runner import TaskRunner, get_instance
-from agent_scheduler.helpers import log, compare_components_with_ids, get_components_by_ids, is_macos
-from agent_scheduler.db import init as init_db, task_manager, TaskStatus
+from agent_scheduler.helpers import log, compare_components_with_ids, get_components_by_ids
+from agent_scheduler.db import init as init_db, task_manager
 from agent_scheduler.api import regsiter_apis
-
-# 判斷是否為 SD.Next 環境，以利切換不同的 UI 元件型別
-is_sdnext = parser.description == "SD.Next"
-ToolButton = gr.Button if ui_components.ToolButton is None else ui_components.ToolButton
+# 畫面模組與共用常數：畫面只做自己的 UI，不反向 import 本檔
+from agent_scheduler.sd_webui import main_any2img, tab_scheduler
+from agent_scheduler.sd_webui.ui_constants import (
+    agent_scheduler_id,
+    agent_scheduler_title,
+    checkpoint_current,
+    checkpoint_runtime,
+    completion_action_choices,
+    enqueue_default_hotkey,
+    enqueue_key_codes,
+    enqueue_key_modifiers,
+    placement_between_prompt_and_generate,
+    placement_under_generate,
+    queue_with_every_checkpoints,
+    task_history_retenion_map,
+    ui_placement_append_to_main,
+    ui_placement_as_tab,
+)
 
 # 全域任務執行器實例，於 on_app_started 時初始化
 task_runner: TaskRunner = None
-
-checkpoint_current = "Current Checkpoint"
-checkpoint_runtime = "Runtime Checkpoint"
-queue_with_every_checkpoints = "$$_queue_with_all_checkpoints_$$"
-
-ui_placement_as_tab = "As a tab"
-ui_placement_append_to_main = "Append to main UI"
-
-placement_under_generate = "Near Generate button"
-placement_between_prompt_and_generate = "Between Prompt and Generate button"
-
-completion_action_choices = ["Do nothing", "Shut down", "Restart", "Sleep", "Hibernate", "Stop webui", "Restart webui"]
-
-task_filter_choices = ["All", "Bookmarked", "Done", "Failed", "Interrupted"]
-
-enqueue_key_modifiers = [
-    "Command" if is_macos else "Ctrl",
-    "Control" if is_macos else "Alt",
-    "Shift",
-]
-enqueue_default_hotkey = enqueue_key_modifiers[0] + "+KeyE"
-enqueue_key_codes = {}
-enqueue_key_codes.update({chr(i): "Key" + chr(i) for i in range(ord("A"), ord("Z") + 1)})
-enqueue_key_codes.update({chr(i): "Digit" + chr(i) for i in range(ord("0"), ord("9") + 1)})
-enqueue_key_codes.update({"`": "Backquote", "Enter": "Enter"})
-
-task_history_retenion_map = {
-    "1 day": 1,
-    "3 days": 3,
-    "7 days": 7,
-    "14 days": 14,
-    "30 days": 30,
-    "90 days": 90,
-    "Keep forever": 0,
-}
 
 init_db()
 
@@ -91,8 +51,6 @@ class Script(scripts.Script):
 
     負責在 txt2img / img2img 介面上注入 Enqueue 按鈕與 checkpoint 下拉選單，
     並將其點擊事件綁定到排程器的任務註冊邏輯。
-    Injects the Enqueue button and checkpoint dropdown into the txt2img/img2img UI
-    and binds their click events to the scheduler's task-registration logic.
     """
 
     def __init__(self):
@@ -115,7 +73,7 @@ class Script(scripts.Script):
 
     def title(self):
         # 擴充在 UI 上顯示的名稱
-        return "Agent Scheduler"
+        return agent_scheduler_title
 
     def show(self, is_img2img):
         # 此擴充在兩種模式皆常駐顯示
@@ -126,87 +84,11 @@ class Script(scripts.Script):
         self.checkpoint_override = checkpoint
 
     def after_component(self, component, **_kwargs):
-        """在每個 UI 元件建立後掛載 Enqueue 按鈕
+        """在每個 UI 元件建立後掛載 Enqueue 按鈕（委派給 main_any2img）
 
-        sd-webui 會在建構每個元件時呼叫此函式，我們藉此定位 generate 按鈕所在的容器，
-        並依使用者設定的擺放位置把 Enqueue 列插入正確的位置。
-        sd-webui calls this per component; we locate the generate button's container and insert the
-        Enqueue row at the user-configured placement.
+        掛載的核心邏輯（版面偵測、掛載點解析、Enqueue 列插入）。
         """
-        # 依模式選擇對應的 elem_id 前綴
-        id_part = "img2img" if self.is_img2img else "txt2img"
-
-        enqueue_wrapper = f"{id_part}_enqueue_wrapper"
-        generate_id = f"{id_part}_generate"
-
-        # 目前元件的 elem_id
-        component_elem_id = _kwargs.get('elem_id')
-
-        # 先捕捉 generate 按鈕以備後續綁定
-        if component_elem_id == generate_id:
-            self.generate_button = component
-
-        # 若 Enqueue 列已建立，或遇到不需處理的容器則提早結束
-        if self.enqueue_row is not None:
-            return
-        elif component_elem_id is None or component_elem_id == enqueue_wrapper:
-            return
-
-        # Compact 版面偵測：先比對 webui 對 prompt_box_style 的實作與選項值，
-        # 再以實際長出來的元件結構（generate-box-compact / prompt-container-compact）
-        # 佐證；兩者皆以「API 可能不存在」為前提設計，缺 API 時自然退回舊版行為。
-        # Compact layout detection: compare the webui's prompt_box_style
-        # implementation and option value first, then corroborate with the
-        # component structure that was actually built; both assume the API may
-        # be missing, so an API-less version simply falls back to legacy behavior.
-        compact_prompt_box = is_compact_prompt_box() or is_compact_layout(component)
-        # 標記 class 只出現在前段元件（generate box / 提示詞容器），後段的 results
-        # 容器本身沒有標記，因此一旦確認是 Compact 就沿用，避免掛載時機錯過
-        # The marker classes only appear on early components (generate box /
-        # prompt container); the later results container carries none, so a
-        # confirmed Compact result is reused to avoid missing the mount moment
-        if compact_prompt_box:
-            self.compact_layout = True
-        else:
-            compact_prompt_box = self.compact_layout
-
-        # 讀取影響按鈕擺放的使用者設定
-        queue_button_placement = getattr(shared.opts, "queue_button_placement", placement_under_generate)
-
-        # 是否選擇放在提示詞與生成按鈕之間
-        bool_placement_between_prompt_and_generate = queue_button_placement == placement_between_prompt_and_generate
-
-        def add_enqueue_row(elem_id):
-            # 找到目標容器後插入 Enqueue 列；若元件已被放在錯誶的父層，則搬移到正確位置
-            parent = component if elem_id is None or component.elem_id == elem_id else component.parent
-            while parent is not None:
-                if parent.elem_id is None or elem_id is None or parent.elem_id == elem_id:
-                    self.add_enqueue_button()
-                    if component.parent != parent:
-                        # 目前的 render context 不是目標容器時才搬移；
-                        # parent 可能尚未掛上父層（部分版本的元件建立順序不同），須防呆
-                        # Reparent only when the current render context is not the
-                        # target container; the parent may not be attached yet on
-                        # some versions, so guard against that
-                        if component.parent is not None:
-                            component.parent.children.pop()
-                        parent.add(self.enqueue_row)
-                    break
-                parent = parent.parent
-
-        # 依版面（classic / Compact）與設定解析掛載點，非掛載時機則不動作 /
-        # Resolve the mount point from the layout (classic / Compact) and the
-        # setting; do nothing when this component is not a mounting moment
-        mount_point = resolve_enqueue_mount_point(
-            id_part=id_part,
-            component_elem_id=component_elem_id,
-            compact=compact_prompt_box,
-            between=bool_placement_between_prompt_and_generate,
-        )
-        if mount_point is not None:
-            # 掛載到解析出的容器；classic 與 Compact 的落點不同，細節見 enqueue_placement /
-            # Mount into the resolved container; classic and Compact differ there, see enqueue_placement
-            add_enqueue_row(mount_point)
+        main_any2img.after_component(self, component, **_kwargs)
 
     def on_app_started(self, block):
         # UI 元件就緒後才綁定 Enqueue 按鈕事件
@@ -214,69 +96,11 @@ class Script(scripts.Script):
             self.bind_enqueue_button(block)
 
     def add_enqueue_button(self):
-        # 建立 Enqueue 列：checkpoint 下拉選單、選項與便捷按鈕列（主按鈕上方）、Enqueue 主按鈕
-        id_part = "img2img" if self.is_img2img else "txt2img"
-        with gr.Row(elem_id=f"{id_part}_enqueue_wrapper") as row:
-            self.enqueue_row = row
-            hide_checkpoint = getattr(shared.opts, "queue_button_hide_checkpoint", True)
-            self.checkpoint_dropdown = gr.Dropdown(
-                choices=get_checkpoint_choices(),
-                value=checkpoint_current,
-                show_label=False,
-                interactive=True,
-                visible=not hide_checkpoint,
-            )
-            # 當顯示 checkpoint 下拉時，提供重新整理按鈕以同步模型清單
-            if not hide_checkpoint:
-                create_refresh_button(
-                    self.checkpoint_dropdown,
-                    refresh_checkpoints,
-                    lambda: {"choices": get_checkpoint_choices()},
-                    f"refresh_{id_part}_checkpoint",
-                )
+        """建立 Enqueue 列（委派給 main_any2img）
 
-            # 選項與便捷按鈕列放在主按鈕上方：外層 wrapper 是直向堆疊（column），
-            # 自成一列才會並排，也才不會與 Enqueue 主按鈕等寬
-            with gr.Row(elem_classes="agent_scheduler_quick_row"):
-                # 「Disable output to agent-scheduler directory」(skip_change_output_dir)：
-                # 勾選時該次任務不啟動 change_output_dir 機制。
-                # 刻意不做記憶功能：不進設定、不進 localStorage，重載後一律回到未勾選；
-                # 生效範圍只綁在勾選狀態下按下的那次 Enqueue 所產生的任務上。
-                self.skip_change_output_dir_checkbox = gr.Checkbox(
-                    label="Disable output to agent-scheduler directory",
-                    value=False,
-                    elem_id=f"{id_part}_enqueue_skip_change_output_dir",
-                )
-
-                # 便捷按鈕沿用 ToolButton 的圖示按鈕（與 send to 同款、尺寸不搶主按鈕視覺）；
-                # 顏色交由 variant 決定（stop、primary），不另寫樣式，說明放 tooltip；
-                # 顯示狀態由 ui/src/extension/index.ts 與 Task Queue 頁籤那對一併處理
-                paused = getattr(shared.opts, "queue_paused", False)
-                self.pause_button = ToolButton(
-                    "⏸",
-                    elem_id=f"{id_part}_enqueue_pause",
-                    variant="stop",
-                    tooltip="Pause queue: queued tasks wait, the running one finishes",
-                    visible=not paused,
-                )
-                self.resume_button = ToolButton(
-                    "▶",
-                    elem_id=f"{id_part}_enqueue_resume",
-                    variant="primary",
-                    tooltip="Resume queue: start the next queued task",
-                    visible=paused,
-                )
-
-                # 一鍵卸載所有模型以釋放 VRAM 讓按鈕在列內自動靠右
-                self.unload_models_button = ToolButton(
-                    "🧼",
-                    elem_id=f"{id_part}_enqueue_unload_models",
-                    elem_classes="ml-auto",
-                    tooltip="Unload all models and free VRAM",
-                )
-
-            # 實際的 Enqueue 主按鈕（列內最後一個、也是最大的一個）
-            self.submit_button = gr.Button("Enqueue", elem_id=f"{id_part}_enqueue", variant="primary")
+        建立出來的元件都寫回本實例的欄位，事件綁定仍由 bind_enqueue_button 處理。
+        """
+        main_any2img.add_enqueue_button(self)
 
     def bind_enqueue_button(self, root: gr.Blocks):
         # 找出 generate 按鈕背後的 gradio 依賴，用來複製其輸入元件並掛載 Enqueue 行為
@@ -436,149 +260,6 @@ def unload_all_models():
     print("[AgentScheduler] All models unloaded")
 
 
-def get_checkpoint_choices():
-    """建構 Enqueue 下拉選單的 checkpoint 選項
-
-    除了個別 checkpoint 外，也依目錄分組提供「整個資料夾」選項，方便一次排程多個模型。
-    Besides individual checkpoints, group by directory to offer "whole folder" options for batch queuing.
-    """
-    checkpoints: List[str] = list_checkpoint_tiles()
-
-    # 統計各目錄下的 checkpoint 數量，用於分組選項
-    checkpoint_dirs = defaultdict(lambda: 0)
-    for checkpoint in checkpoints:
-        checkpoint_dir = os.path.dirname(checkpoint)
-        while checkpoint_dir != "" and checkpoint_dir != "/":
-            checkpoint_dirs[checkpoint_dir] += 1
-            checkpoint_dir = os.path.dirname(checkpoint_dir)
-
-    choices = checkpoints
-    choices.extend([f"{d} ({checkpoint_dirs[d]} checkpoints)" for d in checkpoint_dirs.keys()])
-    choices = sorted(choices)
-
-    # 固定將「當前 / 執行時」選項放在首位
-    choices.insert(0, checkpoint_runtime)
-    choices.insert(0, checkpoint_current)
-
-    return choices
-
-
-def create_send_to_buttons():
-    # 建立把結果送到其他分頁（txt2img/img2img/...）的按鈕組
-    return {
-        "txt2img": ToolButton(
-            "➠ text" if is_sdnext else "📝",
-            elem_id="agent_scheduler_send_to_txt2img",
-            tooltip="Send generation parameters to txt2img tab.",
-        ),
-        "img2img": ToolButton(
-            "➠ image" if is_sdnext else "🖼️",
-            elem_id="agent_scheduler_send_to_img2img",
-            tooltip="Send image and generation parameters to img2img tab.",
-        ),
-        "inpaint": ToolButton(
-            "➠ inpaint" if is_sdnext else "🎨️",
-            elem_id="agent_scheduler_send_to_inpaint",
-            tooltip="Send image and generation parameters to img2img inpaint tab.",
-        ),
-        "extras": ToolButton(
-            "➠ process" if is_sdnext else "📐",
-            elem_id="agent_scheduler_send_to_extras",
-            tooltip="Send image and generation parameters to extras tab.",
-        ),
-    }
-
-
-def infotexts_to_geninfo(infotexts: List[str]):
-    # 將多筆 infotext 彙整成 geninfo 結構，供前端展示
-    all_promts = []
-    all_seeds = []
-
-    geninfo = {"infotexts": infotexts, "all_prompts": all_promts, "all_seeds": all_seeds, "index_of_first_image": 0}
-
-    for infotext in infotexts:
-        # Dynamic prompt breaks layout of infotext
-        # 動態提示詞會破壞 infotext 排版，故移除 Template 行
-        if "Template: " in infotext:
-            lines = infotext.split("\n")
-            lines = [l for l in lines if not (l.startswith("Template: ") or l.startswith("Negative Template: "))]
-            infotext = "\n".join(lines)
-
-        # 解析單筆 infotext 的產圖參數
-        params = parse_generation_parameters(infotext)
-
-        # 僅以第一筆作為整體 geninfo 的主要欄位
-        if "prompt" not in geninfo:
-            geninfo["prompt"] = params.get("Prompt", "")
-            geninfo["negative_prompt"] = params.get("Negative prompt", "")
-            geninfo["seed"] = params.get("Seed", "-1")
-            geninfo["sampler_name"] = params.get("Sampler", "")
-            geninfo["cfg_scale"] = params.get("CFG scale", "")
-            geninfo["steps"] = params.get("Steps", "0")
-            geninfo["width"] = params.get("Size-1", "512")
-            geninfo["height"] = params.get("Size-2", "512")
-
-        all_promts.append(params.get("Prompt", ""))
-        all_seeds.append(params.get("Seed", "-1"))
-
-    return geninfo
-
-
-def get_task_results(task_id: str, image_idx: int = None):
-    # 依 task id 讀取結果並整理成前端要顯示的元件更新
-    task = task_manager.get_task(task_id)
-
-    galerry = None
-    geninfo = None
-    infotext = None
-    # 任務不存在時不顯示內容
-    if task is None:
-        pass
-    # 未完成的任務僅顯示狀態（失敗時附錯誤）
-    elif task.status != TaskStatus.DONE:
-        infotext = f"Status: {task.status}"
-        if task.status == TaskStatus.FAILED and task.result:
-            infotext += f"\nError: {task.result}"
-    # 已完成的任務解析 result，準備圖片與 geninfo
-    elif task.status == TaskStatus.DONE:
-        try:
-            result: dict = json.loads(task.result)
-            images = result.get("images", [])
-            geninfo = result.get("geninfo", None)
-            if isinstance(geninfo, dict):
-                infotexts = geninfo.get("infotexts", [])
-            else:
-                infotexts = result.get("infotexts", [])
-                geninfo = infotexts_to_geninfo(infotexts)
-
-            # 依 image_idx 決定顯示全部圖片或單張，並取對應的 infotext
-            galerry = [Image.open(i) for i in images if os.path.exists(i)] if image_idx is None else gr.update()
-            idx = image_idx if image_idx is not None else 0
-            if idx < len(infotexts):
-                infotext = infotexts[idx]
-        # 解析失敗時回報錯誤而不中斷整個 UI
-        except Exception as e:
-            log.error(f"[AgentScheduler] Failed to load task result")
-            log.error(e)
-            infotext = f"Failed to load task result: {str(e)}"
-
-    res = (
-        gr.Textbox.update(infotext, visible=infotext is not None),
-        gr.Row.update(visible=galerry is not None),
-    )
-
-    if image_idx is None:
-        geninfo = json.dumps(geninfo) if geninfo else None
-        res += (
-            galerry,
-            gr.Textbox.update(geninfo),
-            gr.File.update(None, visible=False),
-            gr.HTML.update(None),
-        )
-
-    return res
-
-
 def remove_old_tasks():
     # delete task that are too old
     # 依設定刪除過舊的歷史任務，避免資料庫無限增長
@@ -597,226 +278,9 @@ def remove_old_tasks():
             log.debug(f"[AgentScheduler] Deleted {deleted_rows} tasks older than {retention_days} days")
 
 
-def on_ui_tab(**_kwargs):
-    # 建構 Agent Scheduler 的頁籤 UI（任務佇列與歷史） / Build the Agent Scheduler tab UI (queue + history)
-    grid_page_size = getattr(shared.opts, "queue_grid_page_size", 0)
-
-    with gr.Blocks(analytics_enabled=False) as scheduler_tab:
-        with gr.Tabs(elem_id="agent_scheduler_tabs"):
-            with gr.Tab("Task Queue", id=0, elem_id="agent_scheduler_pending_tasks_tab"):
-                with gr.Row(elem_id="agent_scheduler_pending_tasks_wrapper"):
-                    with gr.Column(scale=1):
-                        with gr.Row(elem_id="agent_scheduler_pending_tasks_actions", elem_classes="flex-row"):
-                            paused = getattr(shared.opts, "queue_paused", False)
-
-                            gr.Button(
-                                "Pause",
-                                elem_id="agent_scheduler_action_pause",
-                                variant="stop",
-                                visible=not paused,
-                            )
-                            gr.Button(
-                                "Resume",
-                                elem_id="agent_scheduler_action_resume",
-                                variant="primary",
-                                visible=paused,
-                            )
-                            gr.Button(
-                                "Refresh",
-                                elem_id="agent_scheduler_action_reload",
-                                variant="secondary",
-                            )
-                            gr.Button(
-                                "Clear",
-                                elem_id="agent_scheduler_action_clear_queue",
-                                variant="stop",
-                            )
-                            gr.Button(
-                                "Export",
-                                elem_id="agent_scheduler_action_export",
-                                variant="secondary",
-                            )
-                            gr.Button(
-                                "Import",
-                                elem_id="agent_scheduler_action_import",
-                                variant="secondary",
-                            )
-                            gr.HTML(f'<input type="file" id="agent_scheduler_import_file" style="display: none" accept="application/json" />')
-
-                            with gr.Row(elem_classes=["agent_scheduler_filter_container", "flex-row", "ml-auto"]):
-                                gr.Textbox(
-                                    max_lines=1,
-                                    placeholder="Search",
-                                    label="Search",
-                                    show_label=False,
-                                    min_width=0,
-                                    elem_id="agent_scheduler_action_search",
-                                )
-                        gr.HTML(
-                            f'<div id="agent_scheduler_pending_tasks_grid" class="ag-theme-gradio" data-page-size="{grid_page_size}"></div>'
-                        )
-                    with gr.Column(scale=1):
-                        gr.Gallery(
-                            elem_id="agent_scheduler_current_task_images",
-                            label="Output",
-                            show_label=False,
-                            columns=2,
-                            object_fit="contain",
-                        )
-            with gr.Tab("Task History", id=1, elem_id="agent_scheduler_history_tab"):
-                with gr.Row(elem_id="agent_scheduler_history_wrapper"):
-                    with gr.Column(scale=1):
-                        with gr.Row(elem_id="agent_scheduler_history_actions", elem_classes="flex-row"):
-                            gr.Button(
-                                "Requeue Failed",
-                                elem_id="agent_scheduler_action_requeue",
-                                variant="primary",
-                            )
-                            gr.Button(
-                                "Refresh",
-                                elem_id="agent_scheduler_action_refresh_history",
-                                elem_classes="agent_scheduler_action_refresh",
-                                variant="secondary",
-                            )
-                            gr.Button(
-                                "Clear",
-                                elem_id="agent_scheduler_action_clear_history",
-                                variant="stop",
-                            )
-
-                            with gr.Row(elem_classes=["agent_scheduler_filter_container", "flex-row", "ml-auto"]):
-                                status = gr.Dropdown(
-                                    elem_id="agent_scheduler_status_filter",
-                                    choices=task_filter_choices,
-                                    value="All",
-                                    show_label=False,
-                                    min_width=0,
-                                )
-                                gr.Textbox(
-                                    max_lines=1,
-                                    placeholder="Search",
-                                    label="Search",
-                                    show_label=False,
-                                    min_width=0,
-                                    elem_id="agent_scheduler_action_search_history",
-                                )
-                        gr.HTML(
-                            f'<div id="agent_scheduler_history_tasks_grid" class="ag-theme-gradio" data-page-size="{grid_page_size}"></div>'
-                        )
-                    with gr.Column(scale=1, elem_id="agent_scheduler_history_results"):
-                        galerry = gr.Gallery(
-                            elem_id="agent_scheduler_history_gallery",
-                            label="Output",
-                            show_label=False,
-                            columns=2,
-                            preview=True,
-                            object_fit="contain",
-                        )
-                        with gr.Row(
-                            elem_id="agent_scheduler_history_result_actions",
-                            visible=False,
-                        ) as result_actions:
-                            if is_sdnext:
-                                with gr.Group():
-                                    save = ToolButton(
-                                        "💾",
-                                        elem_id="agent_scheduler_save",
-                                        tooltip=f"Save the image to a dedicated directory ({shared.opts.outdir_save}).",
-                                    )
-                                    save_zip = None
-                            else:
-                                save = ToolButton(
-                                    "💾",
-                                    elem_id="agent_scheduler_save",
-                                    tooltip=f"Save the image to a dedicated directory ({shared.opts.outdir_save}).",
-                                )
-                                save_zip = ToolButton(
-                                    "🗃️",
-                                    elem_id="agent_scheduler_save_zip",
-                                    tooltip=f"Save zip archive with images to a dedicated directory ({shared.opts.outdir_save})",
-                                )
-                            send_to_buttons = create_send_to_buttons()
-                        with gr.Group():
-                            generation_info = gr.Textbox(visible=False, elem_id=f"agent_scheduler_generation_info")
-                            infotext = gr.TextArea(
-                                label="Generation Info",
-                                elem_id=f"agent_scheduler_history_infotext",
-                                interactive=False,
-                                visible=True,
-                                lines=3,
-                            )
-                            download_files = gr.File(
-                                None,
-                                file_count="multiple",
-                                interactive=False,
-                                show_label=False,
-                                visible=False,
-                                elem_id=f"agent_scheduler_download_files",
-                            )
-                            html_log = gr.HTML(elem_id=f"agent_scheduler_html_log", elem_classes="html-log")
-                            selected_task = gr.Textbox(
-                                elem_id="agent_scheduler_history_selected_task",
-                                visible=False,
-                                show_label=False,
-                            )
-                            selected_image_id = gr.Textbox(
-                                elem_id="agent_scheduler_history_selected_image",
-                                visible=False,
-                                show_label=False,
-                            )
-
-        # register event handlers
-        # 註冊前端互動的事件處理器
-        status.change(
-            fn=lambda x: None,
-            _js="agent_scheduler_status_filter_changed",
-            inputs=[status],
-        )
-        save.click(
-            fn=lambda x, y, z: call_queue.wrap_gradio_call(save_files)(x, y, False, int(z)),
-            _js="(x, y, z) => [x, y, selected_gallery_index()]",
-            inputs=[generation_info, galerry, infotext],
-            outputs=[download_files, html_log],
-            show_progress=False,
-        )
-        if save_zip:
-            save_zip.click(
-                fn=lambda x, y, z: call_queue.wrap_gradio_call(save_files)(x, y, True, int(z)),
-                _js="(x, y, z) => [x, y, selected_gallery_index()]",
-                inputs=[generation_info, galerry, infotext],
-                outputs=[download_files, html_log],
-            )
-        selected_task.change(
-            fn=lambda x: get_task_results(x, None),
-            inputs=[selected_task],
-            outputs=[infotext, result_actions, galerry, generation_info, download_files, html_log],
-        )
-        selected_image_id.change(
-            fn=lambda x, y: get_task_results(x, image_idx=int(y)),
-            inputs=[selected_task, selected_image_id],
-            outputs=[infotext, result_actions],
-        )
-        # 註冊「送往其他分頁」的貼上參數按鈕
-        try:
-            for paste_tabname, paste_button in send_to_buttons.items():
-                register_paste_params_button(
-                    ParamBinding(
-                        paste_button=paste_button,
-                        tabname=paste_tabname,
-                        source_text_component=infotext,
-                        source_image_component=galerry,
-                    )
-                )
-        # 貼上按鈕註冊失敗時靜默忽略，不影響主 UI
-        except:
-            pass
-
-    return [(scheduler_tab, "Agent Scheduler", "agent_scheduler")]
-
-
 def on_ui_settings():
     # 註冊所有 Agent Scheduler 的設定項目
-    section = ("agent_scheduler", "Agent Scheduler")
+    section = (agent_scheduler_id, agent_scheduler_title)
     shared.opts.add_option(
         "queue_paused",
         shared.OptionInfo(
@@ -1005,14 +469,14 @@ def on_app_started(block: gr.Blocks, app):
                 # 暫存已註冊的貼上綁定，避免掛載流程複製時重複
                 bindings = registered_param_bindings.copy()
                 registered_param_bindings.clear()
-                on_ui_tab()
+                tab_scheduler.on_ui_tab()
                 connect_paste_params_buttons()
                 registered_param_bindings.extend(bindings)
 
 
-# 若採用獨立分頁（預設），以 on_ui_tabs 註冊
+# 若採用獨立分頁（預設），以 on_ui_tabs 註冊（頁籤畫面在 tab_scheduler）
 if getattr(shared.opts, "queue_ui_placement", "") != ui_placement_append_to_main:
-    script_callbacks.on_ui_tabs(on_ui_tab)
+    script_callbacks.on_ui_tabs(tab_scheduler.on_ui_tab)
 
 script_callbacks.on_ui_settings(on_ui_settings)
 script_callbacks.on_app_started(on_app_started)
