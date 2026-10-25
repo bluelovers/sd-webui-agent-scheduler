@@ -4,26 +4,17 @@ test_prompt_box_style.py — prompt_box_style 相容偵測的固定測試
 涵蓋:
 1. supports_prompt_box_style()：以 ui_toprow 的實作（_container_class /
    create_prompts 內的讀取邏輯）判斷支援與否，而非只看選項存不存在。
-   supports_prompt_box_style(): support is decided by the ui_toprow
-   implementation (_container_class / how create_prompts reads the option),
-   not merely by the option's existence.
    - A1111（只有 compact_prompt_box、沒有 prompt_box_style）→ 不支援。
    - 選項存在但 Toprow 沒有任何套用邏輯 → 不支援（關鍵回歸案例）。
    - 選項存在且 Toprow 有 _container_class 或 create_prompts 內聯讀取 → 支援。
 2. get_prompt_box_style()：不支援時回傳 None；支援時回傳選項值。
-   get_prompt_box_style(): None when unsupported, the option value otherwise.
 3. is_compact_prompt_box()：Compact 才為 True，並在不支援時退回 A1111
    的 compact_prompt_box 舊選項。
-   is_compact_prompt_box(): True only for Compact, falling back to A1111's
-   legacy compact_prompt_box option when the new API is unsupported.
 4. is_compact_layout()：純以元件結構（generate-box-compact /
    prompt-container-compact 標記 class）判斷，不依賴任何選項 API。
-   is_compact_layout(): pure structural detection from marker classes,
-   depending on no option API at all.
 
 執行
-    python tests/test_prompt_box_style.py
-    python tests/run_tests.py
+    pyrun-test.bat tests/test_prompt_box_style.py
 """
 
 import sys

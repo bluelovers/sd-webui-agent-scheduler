@@ -12,6 +12,9 @@ run_tests.py — 執行 tests/ 底下的測試：全部、指定檔案或 glob
 
     可同時給多個引數；同一檔案被匹配多次時只執行一次（依輸入順序去重）。
 
+aliases:
+    pyrun-test.bat -> pyrun.bat tests/run_tests.py
+
 依賴
     僅 Python 標準庫（unittest），不需 pytest；被測模組只用到 sd-webui 環境
     本就存在的 gradio / requests，因此請以「sd-webui 自己的 Python」執行。

@@ -4,19 +4,12 @@ test_shared_opts_backup.py — SharedOptsBackup 的固定測試
 涵蓋:
 1. save_backup_file()：寫入指定 options 快照、含 computed 根目錄資訊、
    檔案已存在時一律不覆寫、寫入失敗回傳 None 且不拋例外。
-   save_backup_file(): writes the given option snapshot with computed root info,
-   never overwrites an existing file, returns None (never raises) on failure.
 2. set_shared_opts_core()：備份「第一次」的原始值、備份前先修復巢狀殘留路徑。
-   set_shared_opts_core(): backs up the *first* original value and repairs a nested
-   leftover path before backing it up.
 3. restore_shared_opts()：還原時以修復後的路徑寫回。
-   restore_shared_opts(): writes back the repaired path on restore.
 4. simplify_path()：路徑正規化的基本行為。
-   simplify_path(): basic path normalization behavior.
 
 執行
-    python tests/test_shared_opts_backup.py
-    python tests/run_tests.py
+    pyrun-test.bat tests/test_shared_opts_backup.py
 """
 
 import json

@@ -3,17 +3,11 @@ test_task_output.py — task_output 模組的固定測試
 
 涵蓋:
 1. 巢狀殘留路徑的判斷與修復（上次任務在還原設定前中斷）。
-   Detection and repair of nested leftover paths (previous task interrupted
-   before settings were restored).
 2. 輸出根目錄的推導（含「根目錄守門」，保證不會往下再疊一層）。
-   Output root derivation, including the root guard that guarantees the tree is
-   never nested another level.
 3. 任務結束後的空資料夾清理、當日資料夾防護、.txt 原因報告。
-   Post-task empty folder cleanup, day-folder protection and the .txt reason report.
 
 執行
-    python tests/test_task_output.py
-    python tests/run_tests.py
+    pyrun-test.bat tests/test_task_output.py
 """
 
 import sys

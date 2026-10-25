@@ -6,8 +6,7 @@ wrap_gradio_call 例外時不重拋，改回傳 [None, '', "<div class='error'>.
 確保任務失敗時真正原因能帶到日誌與清理報告。
 
 執行
-    python tests/test_compat_ui.py
-    python tests/run_tests.py
+    pyrun-test.bat tests/test_compat_ui.py
 """
 
 import sys

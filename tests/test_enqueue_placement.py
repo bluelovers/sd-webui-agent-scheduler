@@ -5,22 +5,13 @@ test_enqueue_placement.py — Enqueue 掛載點解析的固定測試
 1. classic 版面（有 {tab}_toprow / {tab}_actions_column）：
    - Near Generate → generate 按鈕建立時掛 `{tab}_actions_column`。
    - Between → 負向提示詞建立時掛 `{tab}_toprow`。
-   classic layout (has {tab}_toprow / {tab}_actions_column):
-   - Near Generate → mount `{tab}_actions_column` when the Generate button is built.
-   - Between → mount `{tab}_toprow` when the negative prompt is built.
 2. Compact 版面（無 toprow，Generate 稍後渲染進 `{tab}_results`）：
    - Near Generate → 掛 `{tab}_results`，Enqueue 列落在 Generate 前方同步移動。
    - Between → 掛 `{tab}_prompt_container`（提示詞下方、Generate 之前）。
-   Compact layout (no toprow; Generate is rendered into `{tab}_results` later):
-   - Near Generate → mount `{tab}_results` so the row sits in front of Generate
-     and moves with it.
-   - Between → mount `{tab}_prompt_container` (below the prompts, before Generate).
 3. 非掛載時機（其他元件、elem_id 為 None）一律回傳 None，不誤掛。
-   Non-mounting moments (other components, elem_id None) always return None.
 
 執行
-    python tests/test_enqueue_placement.py
-    python tests/run_tests.py
+    pyrun-test.bat tests/test_enqueue_placement.py
 """
 
 import sys
@@ -32,7 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from agent_scheduler.enqueue_placement import resolve_enqueue_mount_point  # noqa: E402
+from agent_scheduler.sd_webui.enqueue_placement import resolve_enqueue_mount_point  # noqa: E402
 
 
 def resolve(id_part, component_elem_id, compact, between):

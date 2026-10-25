@@ -12,12 +12,6 @@ Windows 上 cmd 讀取 .bat 的方式有三個已知陷阱，這裡用測試守�
 3. **rem 行重導向**：``>`` / ``|`` 需以 ``^`` 跳脫，避免不同 Windows 版本把
    註解行當指令解析、建立多餘檔案。
 
-A .bat that uses labels (``call :`` / ``goto :``) must be CRLF, because cmd's
-label search is unreliable in LF-only files once they grow. Label-free batch
-files (the thin launchers) only execute sequentially, so their line endings
-do not matter and no conversion is ever needed. Both file types stay pure
-ASCII because cmd uses the OEM code page and PowerShell 5.1 reads a no-BOM
-.ps1 with the ANSI code page; ">" and "|" on rem lines must be escaped.
 """
 
 import re

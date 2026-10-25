@@ -4,8 +4,6 @@ test_checkpoint_override.py — checkpoint 覆寫與標籤雙寫的固定測試
 涵蓋:
 1. apply_model_texts()（compat_a1111_forge.infotext_labels）：三態語意
    （None 原樣保留 / "System" 只清除 / 具名雙寫）、新舊標籤清理、輸入不被修改。
-   apply_model_texts() (compat_a1111_forge.infotext_labels): three states,
-   label cleanup, and input immutability.
 2. resolve_checkpoint_title()：委由 get_closet_checkpoint_match，命中回 canonical
    title、未命中回 None。
 3. apply_checkpoint_override()：None 不動作；"System" 只移除烘焙的 checkpoint；
@@ -16,8 +14,7 @@ task_helpers 的模組層匯入需要 sd-webui 的 modules.*，本測試以最�
 不含任何行為）；解析結果一律由個別測試以 mock.patch 指定。
 
 執行
-    python tests/test_checkpoint_override.py
-    python tests/run_tests.py
+    pyrun-test.bat tests/test_checkpoint_override.py
 """
 
 import sys
