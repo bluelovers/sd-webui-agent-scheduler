@@ -645,30 +645,27 @@ function initTabChangeHandler() {
   });
 }
 
-function initPendingTab() {
-  const store = pendingStore;
-
-  // load data for edit
-  sharedStore.getSamplers().then(res => samplers.push(...res));
-  sharedStore.getCheckpoints().then(res => checkpoints.push(...res));
-
-  // init actions
-  const refreshButton = gradioApp().querySelector<HTMLButtonElement>(
-    '#agent_scheduler_action_reload'
-  )!;
-  refreshButton.addEventListener('click', () => store.refresh());
-
-  /**
-   * Pause / Resume 各自是一個家族：頁籤按鈕與 Enqueue 列便捷按鈕
-   * （元件由 scripts/task_scheduler.py 建立）作用相同，
-   * 合併在同一個 selector 內一次查詢、共用同一段點擊邏輯
-   */
+/**
+ * Pause/Resume 切換邏輯組：家族按鈕綁定與佇列狀態監聽
+ *
+ * 頁籤按鈕與 Enqueue 列便捷按鈕（元件由 scripts/task_scheduler.py 建立）
+ * 作用相同，各以一個家族 selector 合併成一次查詢、共用同一段點擊邏輯；
+ * 點擊先開啟狀態標籤動畫再執行 queue 動作，回應回來交給 notify 收尾。
+ * 訂閱 store 之後，paused 變動會同步切換按鈕顯示、改寫狀態標籤文字，
+ * 並結束狀態標籤的處理中動畫。
+ */
+function initQueueToggles(): void {
   const pauseToggleButtons = gradioApp().querySelectorAll<HTMLElement>(
     '#agent_scheduler_action_pause, [id$="_enqueue_pause"]'
   );
   const resumeToggleButtons = gradioApp().querySelectorAll<HTMLElement>(
     '#agent_scheduler_action_resume, [id$="_enqueue_resume"]'
   );
+
+  console.dir({
+    pauseToggleButtons,
+    resumeToggleButtons,
+  });
 
   /** 開啟狀態標籤動畫後執行對應 queue 動作，回應回來交給 notify 收尾 */
   const bindToggleButtons = (buttons: NodeListOf<HTMLElement>, action: () => Promise<ResponseStatus>) => {
@@ -687,13 +684,71 @@ function initPendingTab() {
       })
     );
   };
-  bindToggleButtons(pauseToggleButtons, () => store.pauseQueue());
-  bindToggleButtons(resumeToggleButtons, () => store.resumeQueue());
+  bindToggleButtons(pauseToggleButtons, () => pendingStore.pauseQueue());
+  bindToggleButtons(resumeToggleButtons, () => pendingStore.resumeQueue());
 
-  console.dir({
-    pauseToggleButtons,
-    resumeToggleButtons,
-  });
+  // watch for queue status change
+  const updateUiState = (state: ReturnType<typeof pendingStore.getState>) => {
+    /**
+     * 便捷列跟著同一個 paused 狀態切換，與頁籤那對同步顯示。
+     * processed 只存在於本次呼叫：兩條掃描路徑共用，先掃到的路徑連同
+     * 反向 id 的成對元素一起入集合，後一條路徑碰到已處理元素就跳過，
+     * 同一輪更新內每個元素只會被 setElementHidden 一次。
+     * 每次都重新查詢：gradio 重建 DOM 之後，init 時快取的節點會失效。
+     */
+    const processed = new WeakSet<HTMLElement>();
+
+    /**
+     * 處理單一元素：入集合後套用隱藏狀態，
+     * 再依反向 id 查出成對元素，存在時一併入集合並套用相反狀態
+     */
+    const applyHidden = (element: HTMLElement, hidden: boolean): void => {
+      if (processed.has(element)) return;
+      processed.add(element);
+      setElementHidden(element, hidden);
+
+      const counterId = getCounterEnqueueId(element.id);
+      if (counterId == null) return;
+
+      const counter = gradioApp().querySelector<HTMLElement>(`#${counterId}`);
+      if (counter == null || processed.has(counter)) return;
+      processed.add(counter);
+      setElementHidden(counter, !hidden);
+    };
+
+    pauseToggleButtons.forEach(el => applyHidden(el, state.paused));
+    resumeToggleButtons.forEach(el => applyHidden(el, !state.paused));
+
+    /**
+     * 狀態標籤文字跟著 paused 切換；文字在 server 端以 gr.Label 建立，
+     * 這裡直接改寫 h2 內容，不另發送更新請求。
+     * 每次都重新查詢：gradio 重建 DOM 之後，init 時快取的節點會失效。
+     */
+    const statusText = state.paused ? QUEUE_STATUS_PAUSED : QUEUE_STATUS_RUNNING;
+    gradioApp()
+      .querySelectorAll<HTMLElement>('.agent_scheduler_status_label h2')
+      .forEach(el => {
+        el.textContent = statusText;
+      });
+
+    setStatusSwitching(false);
+  };
+  pendingStore.subscribe(updateUiState);
+  updateUiState(pendingStore.getState());
+}
+
+function initPendingTab() {
+  const store = pendingStore;
+
+  // load data for edit
+  sharedStore.getSamplers().then(res => samplers.push(...res));
+  sharedStore.getCheckpoints().then(res => checkpoints.push(...res));
+
+  // init actions
+  const refreshButton = gradioApp().querySelector<HTMLButtonElement>(
+    '#agent_scheduler_action_reload'
+  )!;
+  refreshButton.addEventListener('click', () => store.refresh());
 
   const clearButton = gradioApp().querySelector<HTMLButtonElement>(
     '#agent_scheduler_action_clear_queue'
@@ -745,55 +800,6 @@ function initPendingTab() {
       dlAnchorElem.click();
     });
   });
-
-  // watch for queue status change
-  const updateUiState = (state: ReturnType<typeof store.getState>) => {
-    /**
-     * 便捷列跟著同一個 paused 狀態切換，與頁籤那對同步顯示。
-     * processed 只存在於本次呼叫：兩條掃描路徑共用，先掃到的路徑連同
-     * 反向 id 的成對元素一起入集合，後一條路徑碰到已處理元素就跳過，
-     * 同一輪更新內每個元素只會被 setElementHidden 一次。
-     * 每次都重新查詢：gradio 重建 DOM 之後，init 時快取的節點會失效。
-     */
-    const processed = new WeakSet<HTMLElement>();
-
-    /**
-     * 處理單一元素：入集合後套用隱藏狀態，
-     * 再依反向 id 查出成對元素，存在時一併入集合並套用相反狀態
-     */
-    const applyHidden = (element: HTMLElement, hidden: boolean): void => {
-      if (processed.has(element)) return;
-      processed.add(element);
-      setElementHidden(element, hidden);
-
-      const counterId = getCounterEnqueueId(element.id);
-      if (counterId == null) return;
-
-      const counter = gradioApp().querySelector<HTMLElement>(`#${counterId}`);
-      if (counter == null || processed.has(counter)) return;
-      processed.add(counter);
-      setElementHidden(counter, !hidden);
-    };
-
-    pauseToggleButtons.forEach(el => applyHidden(el, state.paused));
-    resumeToggleButtons.forEach(el => applyHidden(el, !state.paused));
-
-    /**
-     * 狀態標籤文字跟著 paused 切換；文字在 server 端以 gr.Label 建立，
-     * 這裡直接改寫 h2 內容，不另發送更新請求。
-     * 每次都重新查詢：gradio 重建 DOM 之後，init 時快取的節點會失效。
-     */
-    const statusText = state.paused ? QUEUE_STATUS_PAUSED : QUEUE_STATUS_RUNNING;
-    gradioApp()
-      .querySelectorAll<HTMLElement>('.agent_scheduler_status_label h2')
-      .forEach(el => {
-        el.textContent = statusText;
-      });
-
-    setStatusSwitching(false);
-  };
-  store.subscribe(updateUiState);
-  updateUiState(store.getState());
 
   let lastHighlightedRow: RowNode<Task> | null;
 
@@ -1346,6 +1352,7 @@ onUiLoaded(function initAgentScheduler() {
   if (agentSchedulerInitialized) return;
   initQueueHandler();
   initTabChangeHandler();
+  initQueueToggles();
   initPendingTab();
   initHistoryTab();
   agentSchedulerInitialized = true;
