@@ -38,6 +38,10 @@ __all__ = [
     "get_checkpoint_choices",
 ]
 
+# 暫停狀態提示文字：顯示在 pause/resume 按鈕後方，說明佇列目前的運作方式
+QUEUE_STATUS_RUNNING = "Queue running"
+QUEUE_STATUS_PAUSED = "Queue paused"
+
 
 def after_component(script, component, **_kwargs):
     """在每個 UI 元件建立後掛載 Enqueue 按鈕
@@ -172,6 +176,21 @@ def add_enqueue_button(script):
                 variant="primary",
                 tooltip="Resume queue: start the next queued task",
                 visible=paused,
+            )
+
+            # 暫停狀態提示：直接告訴使用者佇列正在自動執行任務還是已暫停。
+            # 兩個 span 的 id 尾綴刻意與 pause/resume 相同，讓前端
+            # ui/src/extension/index.ts 的 setElementHidden（以 [id$=...] 選取）一併切換顯示，
+            # 因此無論從這一列還是 Task Queue 頁籤切換、或 OOM 自動暫停，提示都會跟著更新；
+            # pointer-events:none 則讓提示文字不會吃到按鈕上的點擊事件。
+            # 初始顯示與按鈕一致：依 paused 決定。
+            running_style = "" if not paused else "display:none"
+            paused_style = "display:none" if not paused else ""
+            gr.HTML(
+                f'<span id="{id_part}_status_enqueue_pause" class="agent_scheduler_queue_status"'
+                f' style="pointer-events:none;{running_style}">{QUEUE_STATUS_RUNNING}</span>'
+                f'<span id="{id_part}_status_enqueue_resume" class="agent_scheduler_queue_status"'
+                f' style="pointer-events:none;{paused_style}">{QUEUE_STATUS_PAUSED}</span>'
             )
 
             # 一鍵卸載所有模型以釋放 VRAM 讓按鈕在列內自動靠右

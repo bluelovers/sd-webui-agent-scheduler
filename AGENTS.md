@@ -8,6 +8,14 @@
 - **禁止安裝任何依賴**：不執行 `pip` / `uv` / `npm` 等安裝指令；語法驗證與單元測試僅需 Python 標準庫。
 - **Python 呼叫一律走 `pyrun.bat`**（擴充根目錄的標準啟動器）：interpreter 的挑選、`.env`
   與快取行為定義在 `pyrun.ps1`（`pyrun.bat --which` 顯示將使用的 interpreter）。
+- **不應讀取／分析／偵測編譯產物**：除非有特殊狀況需要除錯，否則不讀取、不分析、不 grep
+  編譯產物，一律改查其入口原始碼：
+
+  | 編譯產物 | 入口原始碼 |
+  |---|---|
+  | `./javascript/` | `ui/src/extension/index.ts` |
+  | `./style.css` | `ui/src/extension/index.scss`（由 `index.ts` import，經 vite 輸出到根目錄） |
+  | `__pycache__/` | 對應的 `.py` 原始檔 |
 
 ## Environment Paths
 
