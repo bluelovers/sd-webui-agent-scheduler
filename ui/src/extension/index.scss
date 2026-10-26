@@ -466,6 +466,29 @@ button.ts-btn-action {
       font-weight: inherit !important;
       padding: 0 !important;
     }
+
+    /*
+    * 狀態標籤的「處理中」紅綠邊框：
+    * 平時維持 2px 透明邊框，進出動畫才不會跳動版面。
+    * 處理中以 padding-box / border-box 兩層背景把漸層限制在邊框上，
+    * 紅 → 綠 → 紅 的波峰用 background-position 掃過，像跑燈一樣繞過邊框。
+    */
+    border: 2px solid transparent;
+    border-radius: 6px;
+
+    &--switching {
+      background:
+        linear-gradient(var(--background-fill-secondary), var(--background-fill-secondary)) padding-box,
+        linear-gradient(90deg, #ef4444, #22c55e, #ef4444) border-box !important;
+      background-size: 100% 100%, 200% 100% !important;
+      animation: agent_scheduler_status_border 0.9s linear infinite !important;
+    }
+  }
+}
+
+@keyframes agent_scheduler_status_border {
+  to {
+    background-position: 0 0, -200% 0 !important;
   }
 }
 

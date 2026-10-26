@@ -315,11 +315,11 @@ function setElementHidden(element: HTMLElement, hidden: boolean): void {
  * @returns 反向元素的 id；不屬於成對 id 時回傳 null
  */
 function getCounterEnqueueId(id: string): string | null {
-  if (id.endsWith('_enqueue_pause')) {
-    return `${id.slice(0, -'_enqueue_pause'.length)}_enqueue_resume`;
+  if (id.endsWith('_pause')) {
+    return `${id.slice(0, -'_pause'.length)}_resume`;
   }
-  if (id.endsWith('_enqueue_resume')) {
-    return `${id.slice(0, -'_enqueue_resume'.length)}_enqueue_pause`;
+  if (id.endsWith('_resume')) {
+    return `${id.slice(0, -'_resume'.length)}_pause`;
   }
   return null;
 }
@@ -354,6 +354,20 @@ function initSearchInput(selector: string) {
 //   }
 //   return importInput;
 // }
+
+/**
+ * 切換狀態標籤的「處理中」紅綠邊框動畫 class
+ *
+ * 按下 pause/resume 時開啟，notify 收到回應時關閉；
+ * 每次都重新查詢：gradio 重建 DOM 之後，init 時快取的節點會失效。
+ *
+ * @param switching - 是否顯示處理中動畫
+ */
+function setStatusSwitching(switching: boolean): void {
+  gradioApp()
+    .querySelectorAll<HTMLElement>('.agent_scheduler_status_label')
+    .forEach(el => el.classList.toggle('agent_scheduler_status_label--switching', switching));
+}
 
 async function notify(response: ResponseStatus) {
   if (notyf == null) {
@@ -644,32 +658,42 @@ function initPendingTab() {
   )!;
   refreshButton.addEventListener('click', () => store.refresh());
 
-  const pauseButton = gradioApp().querySelector<HTMLButtonElement>(
-    '#agent_scheduler_action_pause'
-  )!;
-  pauseButton.addEventListener('click', () => store.pauseQueue().then(notify));
-
-  const resumeButton = gradioApp().querySelector<HTMLButtonElement>(
-    '#agent_scheduler_action_resume'
-  )!;
-  resumeButton.addEventListener('click', () => store.resumeQueue().then(notify));
-
   /**
-   * Enqueue 列旁的便捷 Pause/Resume：與頁籤那對共用同一組 store 動作，
-   * 兩處點擊行為因而一致（元件由 scripts/task_scheduler.py 建立）
+   * Pause / Resume 各自是一個家族：頁籤按鈕與 Enqueue 列便捷按鈕
+   * （元件由 scripts/task_scheduler.py 建立）作用相同，
+   * 合併在同一個 selector 內一次查詢、共用同一段點擊邏輯
    */
-  const quickPauseButtons = Array.from(
-    gradioApp().querySelectorAll<HTMLElement>('[id$="_enqueue_pause"]')
+  const pauseToggleButtons = gradioApp().querySelectorAll<HTMLElement>(
+    '#agent_scheduler_action_pause, [id$="_enqueue_pause"]'
   );
-  const quickResumeButtons = Array.from(
-    gradioApp().querySelectorAll<HTMLElement>('[id$="_enqueue_resume"]')
+  const resumeToggleButtons = gradioApp().querySelectorAll<HTMLElement>(
+    '#agent_scheduler_action_resume, [id$="_enqueue_resume"]'
   );
-  quickPauseButtons.forEach(button =>
-    button.addEventListener('click', () => store.pauseQueue().then(notify))
-  );
-  quickResumeButtons.forEach(button =>
-    button.addEventListener('click', () => store.resumeQueue().then(notify))
-  );
+
+  /** 開啟狀態標籤動畫後執行對應 queue 動作，回應回來交給 notify 收尾 */
+  const bindToggleButtons = (buttons: NodeListOf<HTMLElement>, action: () => Promise<ResponseStatus>) => {
+    buttons.forEach(button =>
+      button.addEventListener('click', () => {
+        setStatusSwitching(true);
+
+        console.dir({
+          pauseToggleButtons,
+          resumeToggleButtons,
+          buttons,
+          button,
+        });
+
+        action().then(notify);
+      })
+    );
+  };
+  bindToggleButtons(pauseToggleButtons, () => store.pauseQueue());
+  bindToggleButtons(resumeToggleButtons, () => store.resumeQueue());
+
+  console.dir({
+    pauseToggleButtons,
+    resumeToggleButtons,
+  });
 
   const clearButton = gradioApp().querySelector<HTMLButtonElement>(
     '#agent_scheduler_action_clear_queue'
@@ -724,14 +748,6 @@ function initPendingTab() {
 
   // watch for queue status change
   const updateUiState = (state: ReturnType<typeof store.getState>) => {
-    if (state.paused) {
-      pauseButton.classList.add('hide', 'hidden');
-      resumeButton.classList.remove('hide', 'hidden');
-    } else {
-      pauseButton.classList.remove('hide', 'hidden');
-      resumeButton.classList.add('hide', 'hidden');
-    }
-
     /**
      * 便捷列跟著同一個 paused 狀態切換，與頁籤那對同步顯示。
      * processed 只存在於本次呼叫：兩條掃描路徑共用，先掃到的路徑連同
@@ -759,12 +775,8 @@ function initPendingTab() {
       setElementHidden(counter, !hidden);
     };
 
-    gradioApp()
-      .querySelectorAll<HTMLElement>('[id$="_enqueue_pause"]')
-      .forEach(el => applyHidden(el, state.paused));
-    gradioApp()
-      .querySelectorAll<HTMLElement>('[id$="_enqueue_resume"]')
-      .forEach(el => applyHidden(el, !state.paused));
+    pauseToggleButtons.forEach(el => applyHidden(el, state.paused));
+    resumeToggleButtons.forEach(el => applyHidden(el, !state.paused));
 
     /**
      * 狀態標籤文字跟著 paused 切換；文字在 server 端以 gr.Label 建立，
@@ -777,6 +789,8 @@ function initPendingTab() {
       .forEach(el => {
         el.textContent = statusText;
       });
+
+    setStatusSwitching(false);
   };
   store.subscribe(updateUiState);
   updateUiState(store.getState());
