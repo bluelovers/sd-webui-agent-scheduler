@@ -178,7 +178,8 @@ class Script(scripts.Script):
                     fn=unload_all_models_with_notification,
                     inputs=None,
                     outputs=None,
-                    queue=False,
+                    # 必須搭配 queue=True 才能發出 gradio 通知
+                    queue=True,
                 )
 
             # 若存在 ControlNet 單元，額外綁定以確保其設定一併送出

@@ -15,13 +15,13 @@ from agent_scheduler.log import print_message, with_prefix
 
 __all__ = ["notify_message"]
 
-# 等級名 → gradio 的提示函式名；呼叫時才取用，
-# 避免載入本檔時就要求 gradio 一定提供該符號
+# 合法等級名（僅供驗證用）
 _NOTIFY_FNS = {"info": "Info", "warning": "Warning", "error": "Error"}
 
 
 def notify_message(message, *, level="info", to_print=False, no_prefix=False):
     """顯示一則 webui 提示訊息，可順便印到終端
+    必須搭配 queue=True 才能發出 gradio 通知
 
     @param message - 訊息本體；輸出前統一加上 [AgentScheduler]
     @param level - 等級名（_NOTIFY_FNS 的鍵）：info / warning / error
@@ -31,7 +31,14 @@ def notify_message(message, *, level="info", to_print=False, no_prefix=False):
     if level not in _NOTIFY_FNS:
         raise ValueError(f"unknown level: {level!r}, expected one of {sorted(_NOTIFY_FNS)}")
 
-    getattr(gr, _NOTIFY_FNS[level])(with_prefix(message, no_prefix=no_prefix))
+    text = with_prefix(message, no_prefix=no_prefix)
+
+    if level == "info":
+        gr.Info(text)
+    elif level == "warning":
+        gr.Warning(text)
+    elif level == "error":
+        gr.Error(text)
 
     if to_print:
         print_message(message, level=level, no_prefix=no_prefix)
