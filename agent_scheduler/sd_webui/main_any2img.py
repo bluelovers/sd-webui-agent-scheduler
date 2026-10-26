@@ -179,18 +179,27 @@ def add_enqueue_button(script):
             )
 
             # 暫停狀態提示：直接告訴使用者佇列正在自動執行任務還是已暫停。
-            # 兩個 span 的 id 尾綴刻意與 pause/resume 相同，讓前端
-            # ui/src/extension/index.ts 的 setElementHidden（以 [id$=...] 選取）一併切換顯示，
-            # 因此無論從這一列還是 Task Queue 頁籤切換、或 OOM 自動暫停，提示都會跟著更新；
-            # pointer-events:none 則讓提示文字不會吃到按鈕上的點擊事件。
-            # 初始顯示與按鈕一致：依 paused 決定。
-            running_style = "" if not paused else "display:none"
-            paused_style = "display:none" if not paused else ""
-            gr.HTML(
-                f'<span id="{id_part}_status_enqueue_pause" class="agent_scheduler_queue_status"'
-                f' style="pointer-events:none;{running_style}">{QUEUE_STATUS_RUNNING}</span>'
-                f'<span id="{id_part}_status_enqueue_resume" class="agent_scheduler_queue_status"'
-                f' style="pointer-events:none;{paused_style}">{QUEUE_STATUS_PAUSED}</span>'
+            # 兩個狀態互斥，初始顯示依 paused；id 尾綴刻意與 pause/resume 相同，
+            # 讓前端 ui/src/extension/index.ts 的 setElementHidden（以 [id$=...] 選取）一併切換，
+            # 因此從這一列、Task Queue 頁籤切換或 OOM 自動暫停都會跟著更新；
+            # 該 selector 同時會把 click 掛到這兩個 id 上（與按鈕同一組）。
+            gr.Textbox(
+                value=QUEUE_STATUS_RUNNING,
+                max_lines=1,
+                show_label=False,
+                interactive=False,
+                min_width=0,
+                elem_id=f"{id_part}_status_enqueue_pause",
+                visible=not paused,
+            )
+            gr.Textbox(
+                value=QUEUE_STATUS_PAUSED,
+                max_lines=1,
+                show_label=False,
+                interactive=False,
+                min_width=0,
+                elem_id=f"{id_part}_status_enqueue_resume",
+                visible=paused,
             )
 
             # 一鍵卸載所有模型以釋放 VRAM 讓按鈕在列內自動靠右
