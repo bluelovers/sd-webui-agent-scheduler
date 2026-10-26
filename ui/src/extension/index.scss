@@ -459,6 +459,14 @@ button.ts-btn-action {
     width: auto !important;
     min-width: 0;
   }
+
+  .agent_scheduler_status_label {
+    &, h2 {
+      font-size: 1rem !important;
+      font-weight: inherit !important;
+      padding: 0 !important;
+    }
+  }
 }
 
 :not(#txt2img_generate_box) > #txt2img_enqueue_wrapper,

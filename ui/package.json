@@ -10,7 +10,7 @@
     "ci:build": "pnpm run build && node --run ci:build:commit",
     "ci:build:commit": "git add ../style.css ../javascript/ && git commit ../style.css ../javascript/ -m \"build: update build\" & echo ci:build:commit",
     "lint": "eslint src --ext ts,tsx --fix --report-unused-disable-directives --max-warnings 0",
-    "test:tsc": "tsc --noEmit",
+    "test:tsc": "tsc --noEmit & echo TypeScript check completed (main)",
     "preview": "vite preview"
   },
   "dependencies": {

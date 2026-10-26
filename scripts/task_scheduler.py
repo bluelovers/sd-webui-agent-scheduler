@@ -164,6 +164,13 @@ class Script(scripts.Script):
             # 將 Enqueue 點擊事件綁定到包裝後的註冊函式
             self.submit_button.click(**args)
 
+            def unload_all_models_with_notification():
+                # 一鍵卸載按鈕的入口：卸載前後各提示一次，toast 顯示在瀏覽器；
+                # 終端輸出仍由 unload_all_models 內的 print_message 負責，故不加 to_print
+                notify_message(UNLOADING_ALL_MODELS, level="info")
+                unload_all_models()
+                notify_message(UNLOADED_ALL_MODELS, level="info")
+
             # 一鍵卸載模型：純後端動作、無輸入輸出；queue=False 讓它即時執行，
             # 不排在生成佇列後面才輪到
             if self.unload_models_button is not None:
@@ -248,14 +255,6 @@ class Script(scripts.Script):
             task_runner.execute_pending_tasks_threading()
 
         return f
-
-
-def unload_all_models_with_notification():
-    # 一鍵卸載按鈕的入口：卸載前後各提示一次，toast 顯示在瀏覽器；
-    # 終端輸出仍由 unload_all_models 內的 print_message 負責，故不加 to_print
-    notify_message(UNLOADING_ALL_MODELS, level="info")
-    unload_all_models()
-    notify_message(UNLOADED_ALL_MODELS, level="info")
 
 
 def remove_old_tasks():

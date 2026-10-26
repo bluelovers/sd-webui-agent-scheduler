@@ -84,6 +84,14 @@ const historyStore = createHistoryTasksStore({
 const samplers: string[] = [];
 const checkpoints: string[] = ['System'];
 
+/**
+ * 佇列狀態提示文字：初始值由 agent_scheduler/sd_webui/main_any2img.py 的
+ * QUEUE_STATUS_RUNNING / QUEUE_STATUS_PAUSED 渲染，此處字串須與其一致，
+ * 供 updateUiState 在 paused 切換時改寫狀態標籤
+ */
+const QUEUE_STATUS_RUNNING = 'Queue running';
+const QUEUE_STATUS_PAUSED = 'Queue paused';
+
 const sharedGridOptions: GridOptions<Task> = {
   // default col def properties get applied to all columns
   defaultColDef: {
@@ -259,16 +267,61 @@ const sharedGridOptions: GridOptions<Task> = {
 };
 
 /**
- * 切換便捷 Pause/Resume 的顯示狀態
+ * 切換便捷 Pause/Resume 與佇列狀態提示的顯示狀態
  *
  * gradio 的 `visible` 可能以 class、`hidden` 屬性或 `style.display` 實作，
  * 三者一起切換，兩種 sd-webui 環境才會得到一致結果。
+ * 此外 gradio 對部分元件（例如 Textbox）會把 visible 標在包住 id 的容器上，
+ * 只清元素本身不會真的顯示，所以顯示時會由元素往上清到快速列為止；
+ * 遇到 .agent_scheduler_quick_row 就停，不跨越快速列，避免動到頁籤層級的顯示狀態。
  */
 function setElementHidden(element: HTMLElement, hidden: boolean): void {
-  element.classList.toggle('hide', hidden);
-  element.classList.toggle('hidden', hidden);
-  element.toggleAttribute('hidden', hidden);
-  element.style.display = hidden ? 'none' : '';
+  if (hidden) {
+    element.classList.add('hide', 'hidden');
+    element.toggleAttribute('hidden', true);
+    element.style.display = 'none';
+    return;
+  }
+
+  // 不隱藏：移除元素本身的 hide、hidden 兩個 class
+  element.classList.remove('hide', 'hidden');
+  element.toggleAttribute('hidden', false);
+  element.style.display = '';
+
+  let node: HTMLElement | null = element.parentElement;
+  for (let depth = 0; node && depth < 4; depth += 1) {
+    if (node.id === 'agent_scheduler_pending_tasks_actions' || node.classList.contains('agent_scheduler_quick_row')) {
+      break;
+    }
+    node.classList.remove('hide', 'hidden');
+    node.removeAttribute('hidden');
+    if (node.style.display === 'none') {
+      node.style.display = '';
+    }
+    if (node.getClientRects().length > 0) {
+      break;
+    }
+    node = node.parentElement;
+  }
+}
+
+/**
+ * 取得成對便捷列元素的反向 id
+ *
+ * pause/resume 按鈕與狀態 Textbox 的 id 以 _enqueue_pause / _enqueue_resume 結尾，
+ * 兩者由同一個 paused 狀態驅動，可互相推得對方 id。
+ *
+ * @param id - 原元素 id
+ * @returns 反向元素的 id；不屬於成對 id 時回傳 null
+ */
+function getCounterEnqueueId(id: string): string | null {
+  if (id.endsWith('_enqueue_pause')) {
+    return `${id.slice(0, -'_enqueue_pause'.length)}_enqueue_resume`;
+  }
+  if (id.endsWith('_enqueue_resume')) {
+    return `${id.slice(0, -'_enqueue_resume'.length)}_enqueue_pause`;
+  }
+  return null;
 }
 
 function initSearchInput(selector: string) {
@@ -679,9 +732,51 @@ function initPendingTab() {
       resumeButton.classList.add('hide', 'hidden');
     }
 
-    /** 便捷列跟著同一個 paused 狀態切換，與頁籤那對同步顯示 */
-    quickPauseButtons.forEach(button => setElementHidden(button, state.paused));
-    quickResumeButtons.forEach(button => setElementHidden(button, !state.paused));
+    /**
+     * 便捷列跟著同一個 paused 狀態切換，與頁籤那對同步顯示。
+     * processed 只存在於本次呼叫：兩條掃描路徑共用，先掃到的路徑連同
+     * 反向 id 的成對元素一起入集合，後一條路徑碰到已處理元素就跳過，
+     * 同一輪更新內每個元素只會被 setElementHidden 一次。
+     * 每次都重新查詢：gradio 重建 DOM 之後，init 時快取的節點會失效。
+     */
+    const processed = new WeakSet<HTMLElement>();
+
+    /**
+     * 處理單一元素：入集合後套用隱藏狀態，
+     * 再依反向 id 查出成對元素，存在時一併入集合並套用相反狀態
+     */
+    const applyHidden = (element: HTMLElement, hidden: boolean): void => {
+      if (processed.has(element)) return;
+      processed.add(element);
+      setElementHidden(element, hidden);
+
+      const counterId = getCounterEnqueueId(element.id);
+      if (counterId == null) return;
+
+      const counter = gradioApp().querySelector<HTMLElement>(`#${counterId}`);
+      if (counter == null || processed.has(counter)) return;
+      processed.add(counter);
+      setElementHidden(counter, !hidden);
+    };
+
+    gradioApp()
+      .querySelectorAll<HTMLElement>('[id$="_enqueue_pause"]')
+      .forEach(el => applyHidden(el, state.paused));
+    gradioApp()
+      .querySelectorAll<HTMLElement>('[id$="_enqueue_resume"]')
+      .forEach(el => applyHidden(el, !state.paused));
+
+    /**
+     * 狀態標籤文字跟著 paused 切換；文字在 server 端以 gr.Label 建立，
+     * 這裡直接改寫 h2 內容，不另發送更新請求。
+     * 每次都重新查詢：gradio 重建 DOM 之後，init 時快取的節點會失效。
+     */
+    const statusText = state.paused ? QUEUE_STATUS_PAUSED : QUEUE_STATUS_RUNNING;
+    gradioApp()
+      .querySelectorAll<HTMLElement>('.agent_scheduler_status_label h2')
+      .forEach(el => {
+        el.textContent = statusText;
+      });
   };
   store.subscribe(updateUiState);
   updateUiState(store.getState());
