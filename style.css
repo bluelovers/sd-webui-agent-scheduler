@@ -1413,9 +1413,10 @@ button.ts-btn-action.stop:hover,button.ts-btn-action.stop[disabled]{border-color
 #txt2img_enqueue_wrapper>div:first-child,#img2img_enqueue_wrapper>div:first-child{flex-flow:row;flex:none;align-items:stretch;flex-grow:unset!important}
 .agent_scheduler_quick_row{flex-wrap:wrap;align-items:center}
 .agent_scheduler_quick_row>*{min-width:0;flex:none!important;width:auto!important}
-.agent_scheduler_quick_row .agent_scheduler_status_label,.agent_scheduler_quick_row .agent_scheduler_status_label h2{font-size:1rem!important;font-weight:inherit!important;padding:0!important}
-.agent_scheduler_quick_row .agent_scheduler_status_label{border:2px solid #0000;border-radius:6px}
+.agent_scheduler_quick_row .agent_scheduler_status_label,.agent_scheduler_quick_row .agent_scheduler_status_label h2{line-height:1em;font-size:1em!important;font-weight:inherit!important;padding:0!important}
+.agent_scheduler_quick_row .agent_scheduler_status_label{border:2px solid #0000;border-radius:6px;transition:opacity .2s,border-color .2s}
 .agent_scheduler_quick_row .agent_scheduler_status_label--switching{background:linear-gradient(var(--background-fill-secondary), var(--background-fill-secondary)) padding-box, linear-gradient(90deg, #ef4444, #22c55e, #ef4444) border-box!important;background-size:100% 100%,200% 100%!important;animation:.9s linear infinite agent_scheduler_status_border!important}
+.agent_scheduler_quick_row .agent_scheduler_status_label--initializing{opacity:.5}
 @keyframes agent_scheduler_status_border{to{background-position:0 0,-200% 0!important}
 }
 :not(#txt2img_generate_box)>#txt2img_enqueue_wrapper,:not(#img2img_generate_box)>#img2img_enqueue_wrapper{align-self:flex-start}
