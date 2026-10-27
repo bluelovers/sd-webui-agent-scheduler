@@ -50,15 +50,20 @@ def _release_memory_after_idle():
             level="info",
         )
 
-        try:
-            unload_all_models()
-            _clear_prompt_cache()
-        except Exception:
-            print_message("Error releasing memory after idle timeout", level="error")
-            print_message(traceback.format_exc(), level="debug")
-        finally:
-            devices.torch_gc()
-            gc.collect()
+        release_memory()
+
+
+def release_memory():
+    """Unloads all models and runs gc; shared by the idle timer and the unload button."""
+    try:
+        unload_all_models()
+        # _clear_prompt_cache()
+    except Exception:
+        print_message("Error releasing memory after idle timeout", level="error")
+        print_message(traceback.format_exc(), level="debug")
+    finally:
+        devices.torch_gc()
+        gc.collect()
 
 
 def _clear_prompt_cache():

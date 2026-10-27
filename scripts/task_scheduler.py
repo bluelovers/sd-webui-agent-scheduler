@@ -19,7 +19,7 @@ from agent_scheduler.compat_a1111_forge.ui import get_ui_dependencies, get_ui_fn
 
 from agent_scheduler.task_runner import TaskRunner, get_instance
 from agent_scheduler.helpers import compare_components_with_ids, get_components_by_ids
-from agent_scheduler.idle_release import begin_task_tracking, end_task_tracking
+from agent_scheduler.idle_release import begin_task_tracking, end_task_tracking, release_memory
 from agent_scheduler.log import print_message
 from agent_scheduler.db import init as init_db, task_manager
 from agent_scheduler.api import regsiter_apis
@@ -45,7 +45,6 @@ from agent_scheduler.sd_webui.ui_constants import (
 from agent_scheduler.utils.torch_helpers import (
     UNLOADED_ALL_MODELS,
     UNLOADING_ALL_MODELS,
-    unload_all_models,
 )
 
 # 全域任務執行器實例，於 on_app_started 時初始化
@@ -181,7 +180,7 @@ class Script(scripts.Script):
                 # 一鍵卸載按鈕的入口：卸載前後各提示一次，toast 顯示在瀏覽器；
                 # 終端輸出仍由 unload_all_models 內的 print_message 負責，故不加 to_print
                 notify_message(UNLOADING_ALL_MODELS, level="warning")
-                unload_all_models()
+                release_memory()
                 notify_message(UNLOADED_ALL_MODELS, level="info")
 
             # 一鍵卸載模型：純後端動作、無輸入輸出；queue=False 讓它即時執行，
