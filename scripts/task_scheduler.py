@@ -19,6 +19,7 @@ from agent_scheduler.compat_a1111_forge.ui import get_ui_dependencies, get_ui_fn
 
 from agent_scheduler.task_runner import TaskRunner, get_instance
 from agent_scheduler.helpers import compare_components_with_ids, get_components_by_ids
+from agent_scheduler.idle_release import begin_task_tracking, end_task_tracking
 from agent_scheduler.log import print_message
 from agent_scheduler.db import init as init_db, task_manager
 from agent_scheduler.api import regsiter_apis
@@ -96,6 +97,18 @@ class Script(scripts.Script):
         掛載的核心邏輯（版面偵測、掛載點解析、Enqueue 列插入）。
         """
         main_any2img.after_component(self, component, **_kwargs)
+
+    def before_process(self, *args, **kwargs):
+        # 任務進入處理：取消待執行的閒置釋放
+        begin_task_tracking()
+
+    def before_process_batch(self, *args, **kwargs):
+        # 批次進入處理：同上，確保多批次任務執行期間不觸發釋放
+        begin_task_tracking()
+
+    def postprocess(self, *args, **kwargs):
+        # 任務處理完成：重新啟動五分鐘閒置倒數
+        end_task_tracking()
 
     def on_app_started(self, block):
         # UI 元件就緒後才綁定 Enqueue 按鈕事件
