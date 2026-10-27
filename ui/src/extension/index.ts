@@ -645,6 +645,37 @@ function initTabChangeHandler() {
   });
 }
 
+function _queryTogglesElement() {
+  const pauseToggleButtons = gradioApp().querySelectorAll<HTMLElement>(
+    '#agent_scheduler_action_pause, [id$="_enqueue_pause"]'
+  );
+  const resumeToggleButtons = gradioApp().querySelectorAll<HTMLElement>(
+    '#agent_scheduler_action_resume, [id$="_enqueue_resume"]'
+  );
+
+  const statusTextElement = gradioApp().querySelectorAll<HTMLElement>(
+    '.agent_scheduler_status_label h2'
+  );
+
+  return {
+    pauseToggleButtons,
+    resumeToggleButtons,
+    statusTextElement,
+  };
+}
+
+let { pauseToggleButtons, resumeToggleButtons, statusTextElement } = _queryTogglesElement();
+
+function _createHookToggleSwitching(action: () => Promise<ResponseStatus>) {
+  return () => {
+    setStatusSwitching(true);
+    return action().then(notify);
+  }
+}
+
+const hookTogglePauseQueue = _createHookToggleSwitching(() => pendingStore.pauseQueue());
+const hookToggleResumeQueue = _createHookToggleSwitching(() => pendingStore.resumeQueue());
+
 /**
  * Pause/Resume 切換邏輯組：家族按鈕綁定與佇列狀態監聽
  *
@@ -655,44 +686,23 @@ function initTabChangeHandler() {
  * 並結束狀態標籤的處理中動畫。
  */
 function initQueueToggles(): void {
-  const pauseToggleButtons = gradioApp().querySelectorAll<HTMLElement>(
-    '#agent_scheduler_action_pause, [id$="_enqueue_pause"]'
-  );
-  const resumeToggleButtons = gradioApp().querySelectorAll<HTMLElement>(
-    '#agent_scheduler_action_resume, [id$="_enqueue_resume"]'
-  );
 
-  let statusTextElement = gradioApp().querySelectorAll<HTMLElement>(
-    '.agent_scheduler_status_label h2'
-  );
-
-  console.dir({
-    pauseToggleButtons,
-    resumeToggleButtons,
-    statusTextElement,
-  });
+  ({ pauseToggleButtons, resumeToggleButtons, statusTextElement } = _queryTogglesElement());
 
   /** 開啟狀態標籤動畫後執行對應 queue 動作，回應回來交給 notify 收尾 */
-  const bindToggleButtons = (buttons: NodeListOf<HTMLElement>, action: () => Promise<ResponseStatus>) => {
-    buttons.forEach(button =>
-      button.addEventListener('click', () => {
-        setStatusSwitching(true);
-
-        console.dir({
-          pauseToggleButtons,
-          resumeToggleButtons,
-          statusTextElement,
-          buttons,
-          button,
-        });
-
-        action().then(notify);
-      })
-    );
+  const bindToggleButtons = (buttons: NodeListOf<HTMLElement>, fn: ReturnType<typeof _createHookToggleSwitching>) => {
+    buttons?.forEach(button => {
+      button.removeEventListener('click', fn);
+      button.addEventListener('click', fn);
+    });
   };
-  bindToggleButtons(pauseToggleButtons, () => pendingStore.pauseQueue());
-  bindToggleButtons(resumeToggleButtons, () => pendingStore.resumeQueue());
+  bindToggleButtons(pauseToggleButtons, hookTogglePauseQueue);
+  bindToggleButtons(resumeToggleButtons, hookToggleResumeQueue);
 
+  statusTextElement?.forEach(el => el.classList.add('agent_scheduler_status_label--initializing'));
+}
+
+function initQueueSubscribe(): void {
   // watch for queue status change
   const updateUiState = (state: ReturnType<typeof pendingStore.getState>) => {
     /**
@@ -1350,9 +1360,14 @@ function initHistoryTab() {
 
 let agentSchedulerInitialized = false;
 onUiLoaded(function initAgentScheduler() {
+
+  if (pauseToggleButtons?.length || resumeToggleButtons?.length || statusTextElement?.length) {
+    initQueueToggles();
+  }
+
   // delay ui init until dom is available
   if (gradioApp().querySelector('#agent_scheduler_tabs') == null) {
-    setTimeout(initAgentScheduler, 500);
+    setTimeout(initAgentScheduler, 1000);
     return;
   }
 
@@ -1360,6 +1375,7 @@ onUiLoaded(function initAgentScheduler() {
   initQueueHandler();
   initTabChangeHandler();
   initQueueToggles();
+  initQueueSubscribe();
   initPendingTab();
   initHistoryTab();
   agentSchedulerInitialized = true;
