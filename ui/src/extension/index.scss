@@ -462,9 +462,10 @@ button.ts-btn-action {
 
   .agent_scheduler_status_label {
     &, h2 {
-      font-size: 1rem !important;
+      font-size: 1em !important;
       font-weight: inherit !important;
       padding: 0 !important;
+      line-height: 1em;
     }
 
     /*
@@ -475,6 +476,10 @@ button.ts-btn-action {
     */
     border: 2px solid transparent;
     border-radius: 6px;
+    transition:
+      opacity 0.2s ease,
+      border-color 0.2s ease
+    ;
 
     &--switching {
       background:
@@ -482,6 +487,10 @@ button.ts-btn-action {
         linear-gradient(90deg, #ef4444, #22c55e, #ef4444) border-box !important;
       background-size: 100% 100%, 200% 100% !important;
       animation: agent_scheduler_status_border 0.9s linear infinite !important;
+    }
+
+    &--initializing {
+      opacity: 0.5;
     }
   }
 }

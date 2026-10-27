@@ -662,9 +662,14 @@ function initQueueToggles(): void {
     '#agent_scheduler_action_resume, [id$="_enqueue_resume"]'
   );
 
+  let statusTextElement = gradioApp().querySelectorAll<HTMLElement>(
+    '.agent_scheduler_status_label h2'
+  );
+
   console.dir({
     pauseToggleButtons,
     resumeToggleButtons,
+    statusTextElement,
   });
 
   /** 開啟狀態標籤動畫後執行對應 queue 動作，回應回來交給 notify 收尾 */
@@ -676,6 +681,7 @@ function initQueueToggles(): void {
         console.dir({
           pauseToggleButtons,
           resumeToggleButtons,
+          statusTextElement,
           buttons,
           button,
         });
@@ -725,8 +731,7 @@ function initQueueToggles(): void {
      * 每次都重新查詢：gradio 重建 DOM 之後，init 時快取的節點會失效。
      */
     const statusText = state.paused ? QUEUE_STATUS_PAUSED : QUEUE_STATUS_RUNNING;
-    gradioApp()
-      .querySelectorAll<HTMLElement>('.agent_scheduler_status_label h2')
+    statusTextElement
       .forEach(el => {
         el.textContent = statusText;
       });
@@ -735,6 +740,8 @@ function initQueueToggles(): void {
   };
   pendingStore.subscribe(updateUiState);
   updateUiState(pendingStore.getState());
+
+  statusTextElement.forEach(el => el.classList.remove('agent_scheduler_status_label--initializing'));
 }
 
 function initPendingTab() {

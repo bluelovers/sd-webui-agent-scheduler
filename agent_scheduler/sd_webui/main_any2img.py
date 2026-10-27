@@ -188,7 +188,7 @@ def add_enqueue_button(script):
                     show_progress=False,
                     interactive=False,
                     min_width=0,
-                    elem_classes=["agent_scheduler_status_label"],
+                    elem_classes=["agent_scheduler_status_label agent_scheduler_status_label--initializing"],
                     elem_id=f"{id_part}_agent_scheduler_status_label",
                 )
             else:
@@ -203,6 +203,7 @@ def add_enqueue_button(script):
                     interactive=False,
                     min_width=0,
                     elem_id=f"{id_part}_status_enqueue_pause",
+                    elem_classes=["agent_scheduler_status_label--initializing"],
                     visible=not paused,
                 )
                 gr.Textbox(
@@ -212,6 +213,7 @@ def add_enqueue_button(script):
                     interactive=False,
                     min_width=0,
                     elem_id=f"{id_part}_status_enqueue_resume",
+                    elem_classes=["agent_scheduler_status_label--initializing"],
                     visible=paused,
                 )
 

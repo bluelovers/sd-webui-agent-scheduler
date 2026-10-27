@@ -167,7 +167,7 @@ class Script(scripts.Script):
             def unload_all_models_with_notification():
                 # 一鍵卸載按鈕的入口：卸載前後各提示一次，toast 顯示在瀏覽器；
                 # 終端輸出仍由 unload_all_models 內的 print_message 負責，故不加 to_print
-                notify_message(UNLOADING_ALL_MODELS, level="info")
+                notify_message(UNLOADING_ALL_MODELS, level="warning")
                 unload_all_models()
                 notify_message(UNLOADED_ALL_MODELS, level="info")
 
