@@ -172,6 +172,10 @@ export function initPendingTab() {
   const gridOptions: GridOptions<Task> = {
     ...sharedGridOptions,
     editType: 'fullRow',
+    /** 執行中的列追加醒目 class；樣式定義於 index.scss 的 .task-row-running */
+    rowClassRules: {
+      'task-row-running': ({ data }) => data?.status === 'running',
+    },
     defaultColDef: {
       ...sharedGridOptions.defaultColDef,
       editable: ({ data }) => data?.status === 'pending',
