@@ -89,7 +89,6 @@ export const sharedGridOptions: GridOptions<Task> = {
           cellDataType: 'text',
           minWidth: 200,
           maxWidth: 400,
-          autoHeight: true,
           wrapText: true,
           cellClass: [
             'wrap-cell',
@@ -104,7 +103,6 @@ export const sharedGridOptions: GridOptions<Task> = {
           cellDataType: 'text',
           minWidth: 200,
           maxWidth: 400,
-          autoHeight: true,
           wrapText: true,
           cellClass: [
             'wrap-cell',
@@ -192,6 +190,7 @@ export const sharedGridOptions: GridOptions<Task> = {
   getRowId: ({ data }) => data.id,
   rowSelection: 'single', // allow rows to be selected
   animateRows: true, // have rows animate to new positions when sorted
+  rowHeight: 250,
   pagination: true,
   paginationAutoPageSize: true,
   suppressCopyRowsToClipboard: true,
