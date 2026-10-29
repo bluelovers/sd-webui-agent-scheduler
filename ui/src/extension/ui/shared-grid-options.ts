@@ -205,7 +205,8 @@ export const sharedGridOptions: GridOptions<Task> = {
   animateRows: true, // have rows animate to new positions when sorted
   rowHeight: 250,
   pagination: true,
-  paginationAutoPageSize: true,
+  paginationPageSize: 50,
+  paginationAutoPageSize: false,
   suppressCopyRowsToClipboard: true,
   enableBrowserTooltips: true,
   rowClass: [
