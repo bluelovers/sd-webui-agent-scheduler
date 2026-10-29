@@ -1,5 +1,6 @@
 import {
   CellClassParams,
+  ColDef,
   GridOptions,
   ValueFormatterParams,
   ValueGetterParams,
@@ -10,6 +11,21 @@ import { Task } from '../types';
 // load samplers and checkpoints
 export const samplers: string[] = [];
 export const checkpoints: string[] = ['System'];
+
+/**
+ * 兩個頁籤共用的 Action 欄位外框
+ *
+ * 固定釘在右側、不允許調整寬度，欄位值即 task id；
+ * 各頁籤只差 cellRenderer 與其餘少數覆寫，直接展開後補上即可。
+ */
+export const actionColumnBase: ColDef<Task> = {
+  headerName: 'Action',
+  pinned: 'right',
+  minWidth: 110,
+  maxWidth: 110,
+  resizable: false,
+  valueGetter: ({ data }) => data?.id,
+};
 
 export const sharedGridOptions: GridOptions<Task> = {
   // default col def properties get applied to all columns

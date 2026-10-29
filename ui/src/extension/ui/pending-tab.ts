@@ -1,17 +1,17 @@
-import { createGrid, GridApi, GridOptions, ICellRendererParams, RowHighlightPosition, RowNode } from 'ag-grid-community';
+import { GridApi, GridOptions, ICellRendererParams, RowHighlightPosition, RowNode } from 'ag-grid-community';
 
 import cancelIcon from '../../assets/icons/cancel.svg?raw';
 import deleteIcon from '../../assets/icons/delete.svg?raw';
 import playIcon from '../../assets/icons/play.svg?raw';
 import saveIcon from '../../assets/icons/save.svg?raw';
 import { getHighlightPosition, getPixelOnRow, getRowNodeAtPixel } from '../../utils/ag-grid';
-import { debounce } from '../../utils/debounce';
 
 import { pendingStore, sharedStore } from '../stores';
 import { Task } from '../types';
+import { createColumnStatePersistence } from './column-state';
 import { notify } from './notify';
-import { initSearchInput } from './search-input';
-import { checkpoints, samplers, sharedGridOptions } from './shared-grid-options';
+import { actionColumnBase, checkpoints, samplers, sharedGridOptions } from './shared-grid-options';
+import { bindQuickSearch, bindRowData, createTaskGrid } from './task-grid';
 
 export function initPendingTab() {
   const store = pendingStore;
@@ -168,6 +168,7 @@ export function initPendingTab() {
   };
 
   // init grid
+  const persistence = createColumnStatePersistence('agent_scheduler:queue_col_state');
   const gridOptions: GridOptions<Task> = {
     ...sharedGridOptions,
     editType: 'fullRow',
@@ -185,13 +186,8 @@ export function initPendingTab() {
       },
       ...sharedGridOptions.columnDefs!,
       {
-        headerName: 'Action',
-        pinned: 'right',
-        minWidth: 110,
-        maxWidth: 110,
-        resizable: false,
+        ...actionColumnBase,
         editable: false,
-        valueGetter: ({ data }) => data?.id,
         cellClass: 'pending-actions',
         cellRenderer: ({ api, value, data }: ICellRendererParams<Task, string>) => {
           if (data == null || value == null) return;
@@ -251,53 +247,27 @@ export function initPendingTab() {
         },
       },
     ],
-    onColumnMoved: ({ api }) => {
-      const colState = api.getColumnState();
-      const colStateStr = JSON.stringify(colState);
-      localStorage.setItem('agent_scheduler:queue_col_state', colStateStr);
-    },
-    onSortChanged: ({ api }) => {
-      const colState = api.getColumnState();
-      const colStateStr = JSON.stringify(colState);
-      localStorage.setItem('agent_scheduler:queue_col_state', colStateStr);
-    },
-    onColumnResized: ({ api }) => {
-      const colState = api.getColumnState();
-      const colStateStr = JSON.stringify(colState);
-      localStorage.setItem('agent_scheduler:queue_col_state', colStateStr);
-    },
+    ...persistence.handlers,
     onGridReady: ({ api }) => {
       // init quick search input
-      const searchInput = initSearchInput('#agent_scheduler_action_search');
-      searchInput.addEventListener(
-        'keyup',
-        debounce(function () {
-          api.updateGridOptions({ quickFilterText: this.value });
-        }, 200)
-      );
+      bindQuickSearch(api, '#agent_scheduler_action_search');
 
-      const updateRowData = (state: ReturnType<typeof store.getState>) => {
-        api.updateGridOptions({ rowData: state.pending_tasks });
+      bindRowData(
+        api,
+        store,
+        state => state.pending_tasks,
+        (state, api) => {
+          if (state.current_task_id == null) return;
 
-        if (state.current_task_id != null) {
           const node = api.getRowNode(state.current_task_id);
           if (node != null) {
             api.refreshCells({ rowNodes: [node], force: true });
           }
         }
-
-        api.clearFocusedCell();
-        api.autoSizeAllColumns();
-      };
-      store.subscribe(updateRowData);
-      updateRowData(store.getState());
+      );
 
       // restore col state
-      const colStateStr = localStorage.getItem('agent_scheduler:queue_col_state');
-      if (colStateStr != null) {
-        const colState = JSON.parse(colStateStr);
-        api.applyColumnState({ state: colState, applyOrder: true });
-      }
+      persistence.restore(api);
     },
     onRowDragEnter: ({ api, y }) => highlightRow(api, y),
     onRowDragMove: ({ api, y }) => highlightRow(api, y),
@@ -373,18 +343,5 @@ export function initPendingTab() {
     },
   };
 
-  const eGridDiv = gradioApp().querySelector<HTMLDivElement>(
-    '#agent_scheduler_pending_tasks_grid'
-  )!;
-
-  if (typeof eGridDiv.dataset.pageSize === 'string') {
-    const pageSize = parseInt(eGridDiv.dataset.pageSize, 10);
-
-    if (pageSize > 0) {
-      gridOptions.paginationAutoPageSize = false;
-      gridOptions.paginationPageSize = pageSize;
-    }
-  }
-
-  createGrid(eGridDiv, gridOptions);
+  createTaskGrid('#agent_scheduler_pending_tasks_grid', gridOptions);
 }

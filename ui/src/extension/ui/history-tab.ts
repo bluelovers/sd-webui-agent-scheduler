@@ -1,7 +1,6 @@
 import {
   CellClickedEvent,
   CellClassParams,
-  createGrid,
   GridOptions,
   ICellRendererParams,
   ITooltipParams,
@@ -11,13 +10,13 @@ import bookmark from '../../assets/icons/bookmark.svg?raw';
 import bookmarked from '../../assets/icons/bookmark-filled.svg?raw';
 import deleteIcon from '../../assets/icons/delete.svg?raw';
 import rotateIcon from '../../assets/icons/rotate.svg?raw';
-import { debounce } from '../../utils/debounce';
 
 import { historyStore, pendingStore } from '../stores';
 import { Task, TaskStatus } from '../types';
+import { createColumnStatePersistence } from './column-state';
 import { notify } from './notify';
-import { initSearchInput } from './search-input';
-import { sharedGridOptions } from './shared-grid-options';
+import { actionColumnBase, sharedGridOptions } from './shared-grid-options';
+import { bindQuickSearch, bindRowData, createTaskGrid } from './task-grid';
 
 export function initHistoryTab() {
   const store = historyStore;
@@ -67,6 +66,7 @@ export function initHistoryTab() {
   };
 
   // init grid
+  const persistence = createColumnStatePersistence('agent_scheduler:history_col_state');
   const gridOptions: GridOptions<Task> = {
     ...sharedGridOptions,
     readOnlyEdit: true,
@@ -126,12 +126,7 @@ export function initHistoryTab() {
       },
       ...sharedGridOptions.columnDefs!.slice(1),
       {
-        headerName: 'Action',
-        pinned: 'right',
-        minWidth: 110,
-        maxWidth: 110,
-        resizable: false,
-        valueGetter: ({ data }) => data?.id,
+        ...actionColumnBase,
         cellRenderer: ({ api, data, value }: ICellRendererParams<Task, string | undefined>) => {
           if (data == null || value == null) return;
 
@@ -171,45 +166,15 @@ export function initHistoryTab() {
     ],
     rowSelection: 'single',
     suppressRowDeselection: true,
-    onColumnMoved: ({ api }) => {
-      const colState = api.getColumnState();
-      const colStateStr = JSON.stringify(colState);
-      localStorage.setItem('agent_scheduler:history_col_state', colStateStr);
-    },
-    onSortChanged: ({ api }) => {
-      const colState = api.getColumnState();
-      const colStateStr = JSON.stringify(colState);
-      localStorage.setItem('agent_scheduler:history_col_state', colStateStr);
-    },
-    onColumnResized: ({ api }) => {
-      const colState = api.getColumnState();
-      const colStateStr = JSON.stringify(colState);
-      localStorage.setItem('agent_scheduler:history_col_state', colStateStr);
-    },
+    ...persistence.handlers,
     onGridReady: ({ api }) => {
       // init quick search input
-      const searchInput = initSearchInput('#agent_scheduler_action_search_history');
-      searchInput.addEventListener(
-        'keyup',
-        debounce(function () {
-          api.updateGridOptions({ quickFilterText: this.value });
-        }, 200)
-      );
+      bindQuickSearch(api, '#agent_scheduler_action_search_history');
 
-      const updateRowData = (state: ReturnType<typeof store.getState>) => {
-        api.updateGridOptions({ rowData: state.tasks });
-        api.clearFocusedCell();
-        api.autoSizeAllColumns();
-      };
-      store.subscribe(updateRowData);
-      updateRowData(store.getState());
+      bindRowData(api, store, state => state.tasks);
 
       // restore col state
-      const colStateStr = localStorage.getItem('agent_scheduler:history_col_state');
-      if (colStateStr != null) {
-        const colState = JSON.parse(colStateStr);
-        api.applyColumnState({ state: colState, applyOrder: true });
-      }
+      persistence.restore(api);
     },
     onSelectionChanged: ({ api }) => {
       const [selected] = api.getSelectedRows();
@@ -231,18 +196,6 @@ export function initHistoryTab() {
       });
     },
   };
-  const eGridDiv = gradioApp().querySelector<HTMLDivElement>(
-    '#agent_scheduler_history_tasks_grid'
-  )!;
 
-  if (typeof eGridDiv.dataset.pageSize === 'string') {
-    const pageSize = parseInt(eGridDiv.dataset.pageSize, 10);
-
-    if (pageSize > 0) {
-      gridOptions.paginationAutoPageSize = false;
-      gridOptions.paginationPageSize = pageSize;
-    }
-  }
-
-  createGrid(eGridDiv, gridOptions);
+  createTaskGrid('#agent_scheduler_history_tasks_grid', gridOptions);
 }
