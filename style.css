@@ -1241,7 +1241,7 @@ to{transform:scale(1)translateY(-45%)translate(13%)}
 .notyf__toast{border-radius:0;width:100%;max-width:none;box-shadow:0 -2px 7px #00000021}
 .notyf__dismiss{width:56px}
 }
-@layer properties{@supports (((-webkit-hyphens:none)) and (not (margin-trim:inline))) or ((-moz-orient:inline) and (not (color:rgb(from red r g b)))){*,:before,:after,::backdrop{--tw-blur:initial;--tw-brightness:initial;--tw-contrast:initial;--tw-grayscale:initial;--tw-hue-rotate:initial;--tw-invert:initial;--tw-opacity:initial;--tw-saturate:initial;--tw-sepia:initial;--tw-drop-shadow:initial;--tw-drop-shadow-color:initial;--tw-drop-shadow-alpha:100%;--tw-drop-shadow-size:initial}
+@layer properties{@supports (((-webkit-hyphens:none)) and (not (margin-trim:inline))) or ((-moz-orient:inline) and (not (color:rgb(from red r g b)))){*,:before,:after,::backdrop{--tw-rotate-x:initial;--tw-rotate-y:initial;--tw-rotate-z:initial;--tw-skew-x:initial;--tw-skew-y:initial;--tw-blur:initial;--tw-brightness:initial;--tw-contrast:initial;--tw-grayscale:initial;--tw-hue-rotate:initial;--tw-invert:initial;--tw-opacity:initial;--tw-saturate:initial;--tw-sepia:initial;--tw-drop-shadow:initial;--tw-drop-shadow-color:initial;--tw-drop-shadow-alpha:100%;--tw-drop-shadow-size:initial}
 }
 }
 :root,:host{--spacing:.25rem}
@@ -1262,6 +1262,7 @@ to{transform:scale(1)translateY(-45%)translate(13%)}
 .grid{display:grid}
 .hidden{display:none}
 .inline-flex{display:inline-flex}
+.transform{transform:var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) var(--tw-skew-x,) var(--tw-skew-y,)}
 .cursor-pointer{cursor:pointer}
 .pt-3{padding-top:calc(var(--spacing) * 3)}
 .filter{filter:var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,)}
@@ -1362,6 +1363,16 @@ to{transform:scale(1)translateY(-45%)translate(13%)}
 #tabs>#agent_scheduler_tabs{margin-top:var(--layout-gap)}
 .ag-row.ag-row-editing .ag-cell.pending-actions .control-actions,.ag-row:not(.ag-row-editing) .ag-cell.pending-actions .edit-actions{display:none}
 .ag-row.my-ag-row-root{max-height:250px}
+.ag-row.task-row-running{border-left:4px solid var(--color-accent);background-color:var(--color-accent)}
+@supports (color:color-mix(in lab, red, red)){.ag-row.task-row-running{background-color:color-mix(in srgb, var(--color-accent) 8%, transparent)}
+}
+.ag-row.task-row-running{box-shadow:inset 0 0 0 1px var(--color-accent)}
+@supports (color:color-mix(in lab, red, red)){.ag-row.task-row-running{box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent)}
+}
+.ag-row.task-row-running{animation:2s ease-in-out infinite task-row-running-pulse}
+@keyframes task-row-running-pulse{0%,to{box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent)}
+50%{box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 70%, transparent), 0 0 12px color-mix(in srgb, var(--color-accent) 45%, transparent)}
+}
 .ag-cell.wrap-cell{line-height:var(--line-lg);padding-top:calc(var(--ag-cell-horizontal-padding) - 1px);padding-bottom:calc(var(--ag-cell-horizontal-padding) - 1px)}
 .ag-cell.cell-prompts{-webkit-user-select:text;user-select:text;max-height:250px;overflow-y:auto}
 .ag-cell.cell-pre,.ag-cell.cell-prompts{white-space:pre-wrap}
@@ -1430,6 +1441,11 @@ button.ts-btn-action.stop:hover,button.ts-btn-action.stop[disabled]{border-color
 #enqueue_keyboard_shortcut_wrapper .form #setting_queue_keyboard_shortcut{display:none}
 #enqueue_keyboard_shortcut_wrapper .form #enqueue_keyboard_shortcut_disable{width:100%}
 .modification-indicator+#enqueue_keyboard_shortcut_wrapper #enqueue_keyboard_shortcut_disable{padding-left:12px!important}
+@property --tw-rotate-x{syntax:"*";inherits:false}
+@property --tw-rotate-y{syntax:"*";inherits:false}
+@property --tw-rotate-z{syntax:"*";inherits:false}
+@property --tw-skew-x{syntax:"*";inherits:false}
+@property --tw-skew-y{syntax:"*";inherits:false}
 @property --tw-blur{syntax:"*";inherits:false}
 @property --tw-brightness{syntax:"*";inherits:false}
 @property --tw-contrast{syntax:"*";inherits:false}
