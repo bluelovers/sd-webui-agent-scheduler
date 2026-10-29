@@ -1373,6 +1373,12 @@ to{transform:scale(1)translateY(-45%)translate(13%)}
 @keyframes task-row-running-pulse{0%,to{box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent)}
 50%{box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 70%, transparent), 0 0 12px color-mix(in srgb, var(--color-accent) 45%, transparent)}
 }
+.ag-row.task-row-unread{background-color:var(--color-accent)}
+@supports (color:color-mix(in lab, red, red)){.ag-row.task-row-unread{background-color:color-mix(in srgb, var(--color-accent) 8%, transparent)}
+}
+.ag-row.task-row-unread{box-shadow:inset 4px 0 0 var(--color-accent), inset 0 0 0 1px var(--color-accent)}
+@supports (color:color-mix(in lab, red, red)){.ag-row.task-row-unread{box-shadow:inset 4px 0 0 var(--color-accent), inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent)}
+}
 .ag-cell.wrap-cell{line-height:var(--line-lg);padding-top:calc(var(--ag-cell-horizontal-padding) - 1px);padding-bottom:calc(var(--ag-cell-horizontal-padding) - 1px)}
 .ag-cell.cell-prompts{-webkit-user-select:text;user-select:text;max-height:250px;overflow-y:auto}
 .ag-cell.cell-pre,.ag-cell.cell-prompts{white-space:pre-wrap}
@@ -1388,6 +1394,8 @@ button.ts-btn-action.stop{border:var(--button-border-width) solid var(--button-c
 button.ts-btn-action.stop:hover,button.ts-btn-action.stop[disabled]{border-color:var(--button-cancel-border-color-hover);background:var(--button-cancel-background-fill-hover);color:var(--button-cancel-text-color-hover)}
 .ts-bookmark{color:var(--body-text-color-subdued)!important}
 .ts-bookmarked{color:var(--color-accent)!important}
+.ag-cell .ts-bookmark-cell{align-items:center;gap:var(--size-1);flex-direction:column;display:flex}
+.ag-cell .ts-bookmark-cell .ts-history-index{color:var(--body-text-color-subdued);-webkit-user-select:none;user-select:none;font-size:.75em;line-height:1}
 #agent_scheduler_pending_tasks_grid,#agent_scheduler_history_tasks_grid{height:calc(100vh - 300px);min-height:400px}
 #agent_scheduler_pending_tasks_wrapper,#agent_scheduler_history_wrapper{box-shadow:none;justify-content:flex-end;gap:var(--layout-gap);border:0;padding:0}
 @media (width<=1024px){#agent_scheduler_pending_tasks_wrapper,#agent_scheduler_history_wrapper{flex-wrap:wrap}
