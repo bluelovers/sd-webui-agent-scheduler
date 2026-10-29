@@ -2,8 +2,8 @@ import {
   CellClassParams,
   ColDef,
   GridOptions,
+  ICellRendererParams,
   ValueFormatterParams,
-  ValueGetterParams,
 } from 'ag-grid-community';
 
 import { Task } from '../types';
@@ -11,6 +11,24 @@ import { Task } from '../types';
 // load samplers and checkpoints
 export const samplers: string[] = [];
 export const checkpoints: string[] = ['System'];
+
+/**
+ * 型別欄的三行內容：型別、尺寸、批次
+ *
+ * 三者共用同一欄顯示，故抽成單一來源，
+ * 供 valueGetter（過濾／排序用的字串）與 cellRenderer（分行 DOM）共用，
+ * 避免格式在兩處各寫一份。
+ *
+ * @param data - 任務資料；缺 `params` 時尺寸留空、批次沿用原本的 `1 × 1`
+ */
+function getTypeLines(data: Task | undefined): string[] {
+  const params = data?.params;
+  return [
+    data?.type ?? '',
+    params != null ? `${params.width} × ${params.height}` : '',
+    params != null ? `${params.batch_size} × ${params.n_iter}` : '1 × 1',
+  ];
+}
 
 /**
  * 兩個頁籤共用的 Action 欄位外框
@@ -71,9 +89,26 @@ export const sharedGridOptions: GridOptions<Task> = {
     {
       field: 'type',
       headerName: 'Type',
-      minWidth: 80,
-      maxWidth: 80,
+      minWidth: 110,
+      maxWidth: 140,
       editable: false,
+      // 以 valueGetter 組出三行字串，供過濾／排序使用（renderer 另行呈現）
+      valueGetter: ({ data }) => getTypeLines(data).join('\n'),
+      cellRenderer: ({ data }: ICellRendererParams<Task, string>) => {
+        const lines = getTypeLines(data);
+
+        const node = document.createElement('div');
+        node.className = 'type-lines';
+
+        for (const text of lines) {
+          const line = document.createElement('div');
+          line.className = 'type-lines__item';
+          line.textContent = text;
+          node.appendChild(line);
+        }
+
+        return node;
+      },
     },
     {
       field: 'editing',
@@ -159,28 +194,6 @@ export const sharedGridOptions: GridOptions<Task> = {
             max: 30,
             precision: 1,
             step: 0.5,
-          },
-        },
-        {
-          field: 'params.size',
-          headerName: 'Size',
-          minWidth: 110,
-          maxWidth: 110,
-          editable: false,
-          valueGetter: ({ data }: ValueGetterParams<Task, string | undefined>) => {
-            const params = data?.params;
-            return params != null ? `${params.width} × ${params.height}` : undefined;
-          },
-        },
-        {
-          field: 'params.batch',
-          headerName: 'Batching',
-          minWidth: 100,
-          maxWidth: 100,
-          editable: false,
-          valueGetter: ({ data }: ValueGetterParams<Task, string>) => {
-            const params = data?.params;
-            return params != null ? `${params.batch_size} × ${params.n_iter}` : '1 × 1';
           },
         },
       ],
