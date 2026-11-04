@@ -186,6 +186,29 @@
     inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
+/*
+ * 失敗列（history rowClassRules 追加）：紅色 inset 左側厚邊框＋淡紅底色，
+ * 與 accent 未讀 / 執行中列明確區分；紅色沿用 notyf error 色 #ef4444
+ */
+.ag-row.task-row-failed {
+  background-color: color-mix(in srgb, #ef4444 8%, transparent);
+  box-shadow:
+    inset 4px 0 0 #ef4444,
+    inset 0 0 0 1px color-mix(in srgb, #ef4444 30%, transparent);
+}
+
+/*
+ * 中斷列（history rowClassRules 追加）：琥珀色 inset 左側厚邊框＋淡琥珀底色，
+ * 與失敗列的紅色同為醒目狀態色但彼此可辨；規則置於未讀列之後，
+ * 同一列同時命中未讀與狀態時以狀態色優先
+ */
+.ag-row.task-row-interrupted {
+  background-color: color-mix(in srgb, #f59e0b 8%, transparent);
+  box-shadow:
+    inset 4px 0 0 #f59e0b,
+    inset 0 0 0 1px color-mix(in srgb, #f59e0b 30%, transparent);
+}
+
 .ag-cell {
 
   &.wrap-cell {
@@ -202,6 +225,34 @@
 
   &.cell-pre, &.cell-prompts {
     white-space: pre-wrap;
+  }
+
+  /*
+   * Prompt 欄複製按鈕：以 sticky + float 釘在儲存格右上角。
+   * 提示詞超過列高時儲存格內部捲動 (overflow-y: auto)，
+   * sticky 讓按鈕留在可視頂端；不透明背景避免捲動時文字自按鈕背後掠過。
+   */
+  .ts-btn-copy {
+    position: sticky;
+    top: 0;
+    float: right;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1;
+    margin: 0 0 var(--size-1) var(--size-1);
+    padding: 2px !important;
+    border: none;
+    border-radius: 4px;
+    background-color: var(--table-even-background-fill);
+    color: var(--body-text-color-subdued);
+    cursor: pointer;
+    transition: var(--button-transition);
+
+    &:hover {
+      color: var(--color-accent);
+      background-color: var(--background-fill-secondary);
+    }
   }
 
 }

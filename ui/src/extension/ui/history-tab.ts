@@ -85,6 +85,8 @@ export function initHistoryTab() {
     // 初次渲染後才新增的列追加醒目 class；樣式定義於 index.scss 的 .task-row-unread
     rowClassRules: {
       'task-row-unread': ({ data }) => data != null && unreadTaskIds.has(data.id),
+      'task-row-failed': ({ data }) => data?.status === 'failed',
+      'task-row-interrupted': ({ data }) => data?.status === 'interrupted',
     },
     defaultColDef: {
       ...sharedGridOptions.defaultColDef,

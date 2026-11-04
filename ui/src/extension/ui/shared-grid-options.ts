@@ -6,7 +6,10 @@ import {
   ValueFormatterParams,
 } from 'ag-grid-community';
 
+import copyIcon from '../../assets/icons/copy.svg?raw';
+
 import { Task } from '../types';
+import { notify } from './notify';
 
 // load samplers and checkpoints
 export const samplers: string[] = [];
@@ -28,6 +31,86 @@ function getTypeLines(data: Task | undefined): string[] {
     params != null ? `${params.width} × ${params.height}` : '',
     params != null ? `${params.batch_size} × ${params.n_iter}` : '1 × 1',
   ];
+}
+
+/**
+ * 將文字複製到剪貼簿 (Clipboard)，回傳是否複製成功
+ *
+ * 非安全上下文 (Secure Context)（例如以區域網路 IP 存取 WebUI）
+ * 沒有 navigator.clipboard，需退回隱藏 textarea + execCommand 路徑
+ *
+ * @param text - 要複製的文字
+ */
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    /** Clipboard API 不可用或權限被拒，續行備援路徑 */
+  }
+
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+
+    const copied = document.execCommand('copy');
+    textarea.remove();
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Prompt 欄的 cellRenderer：輸出提示詞文字與右上角的複製按鈕
+ *
+ * 提示詞為空時不輸出按鈕；按鈕攔截 mousedown / click / dblclick，
+ * 避免點擊誤觸儲存格編輯與列點擊行為
+ *
+ * @param value - 提示詞字串
+ * @returns 儲存格內容節點
+ */
+function promptCellRenderer({ value }: ICellRendererParams<Task, string>): HTMLElement {
+  const text = value ?? '';
+
+  const node = document.createElement('div');
+
+  if (text !== '') {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ts-btn-copy';
+    button.title = 'Copy prompt';
+    button.innerHTML = copyIcon;
+
+    /**
+     * 停止事件冒逸：讓按鈕點擊不進入 grid，
+     * 避免 pending 頁籤由點擊啟動編輯、history 頁籤誤判列點擊
+     */
+    const stopEvent = (event: Event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    button.addEventListener('mousedown', stopEvent);
+    button.addEventListener('dblclick', stopEvent);
+    button.addEventListener('click', event => {
+      stopEvent(event);
+      copyToClipboard(text).then(copied => {
+        notify({ success: copied, message: copied ? 'Prompt copied' : 'Copy failed' });
+      });
+    });
+
+    node.appendChild(button);
+  }
+
+  const content = document.createElement('span');
+  content.textContent = text;
+  node.appendChild(content);
+
+  return node;
 }
 
 /**
@@ -131,6 +214,7 @@ export const sharedGridOptions: GridOptions<Task> = {
             'cell-prompts',
             'cell-pre',
           ],
+          cellRenderer: promptCellRenderer,
         },
         {
           field: 'params.negative_prompt',
