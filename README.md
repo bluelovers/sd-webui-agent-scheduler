@@ -11,16 +11,15 @@
 >
 > This extension is compatible with both the AUTOMATIC1111 WebUI and the Forge Neo (sd-webui-forge-classic) fork. Version-specific differences (gradio, pydantic, module locations) are handled internally via the `agent_scheduler/compat_a1111_forge` compatibility layer.
 
-Introducing AgentScheduler, an A1111/Vladmandic Stable Diffusion Web UI extension to power up your image generation workflow!
+Introducing AgentScheduler, an A1111/Forge Neo Stable Diffusion Web UI extension to power up your image generation workflow!
 
 ## Table of Content
 
 - [Compatibility](#compatibility)
 - [Installation](#installation)
-  - [Using Vlad Fork](#using-vlads-webui-fork)
   - [Using the built-in extension list](#using-the-built-in-extension-list)
   - [Manual clone](#manual-clone)
-- [Functionality](#functionality-as-of-current-version)
+- [Basic Features](#basic-features)
 - [Settings](#extension-settings)
 - [API Access](#api-access)
 - [Troubleshooting](#troubleshooting)
@@ -33,24 +32,20 @@ Introducing AgentScheduler, an A1111/Vladmandic Stable Diffusion Web UI extensio
 
 ## Compatibility
 
-This version of AgentScheduler is compatible with latest versions of:
+This version of AgentScheduler is compatible with:
 
-- A1111: [commit baf6946](https://github.com/AUTOMATIC1111/stable-diffusion-webui/commit/baf6946e06249c5af9851c60171692c44ef633e0)
-- Vladmandic: [commit 9726b4d](https://github.com/vladmandic/automatic/commit/9726b4d23cb63779964e1d4edff49dd2c9c11e51)
+- **AUTOMATIC1111 Web UI**: latest versions ([commit baf6946](https://github.com/AUTOMATIC1111/stable-diffusion-webui/commit/baf6946e06249c5af9851c60171692c44ef633e0) or [later](https://github.com/AUTOMATIC1111/stable-diffusion-webui/tree/dev))
+- **Forge Neo (sd-webui-forge-classic)**: latest versions
 
-> Older versions may not working properly.
+> Older versions (including Vladmandic's fork) may not work properly.
 
 ## Installation
-
-### Using Vlad's WebUI Fork
-
-The extension is already included in [Vlad fork](https://github.com/vladmandic/automatic)'s builtin extensions.
 
 ### Using the built-in extension list
 
 1. Open the Extensions tab
 2. Open the "Install From URL" sub-tab
-3. Paste the repo url: https://github.com/ArtVentureX/sd-webui-agent-scheduler.git
+3. Paste the repo url: https://github.com/bluelovers/sd-webui-agent-scheduler.git
 4. Click "Install"
 
 ![Install](https://github.com/ArtVentureX/sd-webui-agent-scheduler/assets/133728487/f0fa740b-392a-4dd6-abe1-49c770ea60da)
@@ -58,7 +53,7 @@ The extension is already included in [Vlad fork](https://github.com/vladmandic/a
 ### Manual clone
 
 ```bash
-git clone "https://github.com/ArtVentureX/sd-webui-agent-scheduler.git" extensions/agent-scheduler
+git clone "https://github.com/bluelovers/sd-webui-agent-scheduler.git" extensions/agent-scheduler
 ```
 
 (The second argument specifies the name of the folder, you can choose whatever you like).
@@ -235,26 +230,20 @@ If you see this error message in the output console, try update the WebUI to the
 
 **Update**: The extension is updated to print this warning message instead: **YOUR SD WEBUI IS OUTDATED AND AGENT SCHEDULER WILL NOT WORKING PROPERLY.** You can still able to use the extension but it will not working correctly after a reload.
 
-~~**ReferenceError: submit_enqueue is not defined**~~
-
-~~If you click the `Enqueue` button and nothing happen, and you find above error message in the browser F12 console, follow the steps in [this comment](https://github.com/ArtVentureX/sd-webui-agent-scheduler/issues/4#issuecomment-1575986274).~~
-
-Update: This issue is now fixed.
-
 **TypeError: issubclass() arg 1 must be a class**
 Please update the extension, there's a chance it's already fixed.
 
 **TypeError: Object of type X is not JSON serializable**
 Please update the extension, it should be fixed already. If not, please fire an issue report with the list of installed extensions.
 
-For other errors, feel free to fire a new [Github issue](https://github.com/ArtVentureX/sd-webui-agent-scheduler/issues/new/choose).
+For other errors, feel free to fire a new [Github issue](https://github.com/bluelovers/sd-webui-agent-scheduler/issues/new/choose).
 
 ## Road Map
 
 To list possible feature upgrades for this extension
 
 - Connect multiple SD webui nodes to run task.
-- Sync with GenAI Management Platform **ArtVenture**
+- Keep both A1111 and Forge Neo environments fully supported.
 
 ## Contributing
 
