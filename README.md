@@ -3,6 +3,7 @@
 > **Fork**
 >
 > This repository, https://github.com/bluelovers/sd-webui-agent-scheduler, is a fork and improved version of https://github.com/SipherAGI/sd-webui-agent-scheduler.
+> The default branch is `dev`.
 
 > **Supported environments**
 >
@@ -53,10 +54,10 @@ This version of AgentScheduler is compatible with:
 ### Manual clone
 
 ```bash
-git clone "https://github.com/bluelovers/sd-webui-agent-scheduler.git" extensions/agent-scheduler
+git clone -b dev "https://github.com/bluelovers/sd-webui-agent-scheduler.git" extensions/agent-scheduler
 ```
 
-(The second argument specifies the name of the folder, you can choose whatever you like).
+(The second argument specifies the name of the folder, you can choose whatever you like). The `dev` branch is the default branch of this fork.
 
 ## Basic Features
 
@@ -214,8 +215,8 @@ async def handle_task_completed(
 
 Make sure that you are running the latest version of the extension and an updated version of the WebUI.
 
-- To update the extension, go to `Extension` tab and click `Check for Updates`, then click `Apply and restart UI`.
-- To update the WebUI it self, you run the command `git pull origin master` in the same folder as webui.bat (or webui.sh).
+- To update the extension, go to `Extension` tab and click `Check for Updates`, then click `Apply and restart UI`. Or manually run `git pull origin dev` in the extension folder (e.g. `extensions/agent-scheduler`).
+- To update the WebUI itself, run `git pull` in the same folder as webui.bat (or webui.sh).
 
 Steps to try to find the cause of issues:
 
