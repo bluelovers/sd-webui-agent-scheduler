@@ -1,7 +1,7 @@
 {
   "name": "ui",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "homepage": "https://github.com/bluelovers/sd-webui-agent-scheduler#readme",
   "bugs": {
     "url": "https://github.com/bluelovers/sd-webui-agent-scheduler/issues"
@@ -12,13 +12,13 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "node --run test:tsc && node --run build:extension",
-    "build:extension": "vite build --config vite.extension.ts",
-    "ci:build": "pnpm run build && node --run ci:build:commit && pnpm run postpublish:changelog && pnpm run postpublish",
-    "ci:build:commit": "git add ../style.css ../javascript/ && git commit ../style.css ../javascript/ -m \"build: update build\" & echo ci:build:commit",
     "lint": "eslint src --ext ts,tsx --fix --report-unused-disable-directives --max-warnings 0",
     "test:tsc": "tsc --noEmit & echo TypeScript check completed (main)",
+    "build": "node --run test:tsc && node --run build:extension",
+    "build:extension": "vite build --config vite.extension.ts",
     "ci:install": "pnpm install --frozen-lockfile && pnpm add -w typescript tsx ynpx @yarn-tool/changelog",
+    "ci:build": "pnpm run build && node --run ci:build:commit && pnpm run postpublish:changelog && pnpm run postpublish",
+    "ci:build:commit": "git add ../style.css ../javascript/ && git commit ../style.css ../javascript/ -m \"build: update build\" & echo ci:build:commit",
     "postpublish": "pnpm run postpublish:git:commit && pnpm run postpublish:git:tag && pnpm run postpublish:git:push",
     "postpublish:changelog": "ynpx --quiet @yarn-tool/changelog && node --run postpublish:changelog:move && git add ../CHANGELOG.md & echo postpublish:changelog",
     "postpublish:changelog:move": "move /y CHANGELOG.md ../CHANGELOG.md & echo postpublish:changelog:move",
